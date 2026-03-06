@@ -33,7 +33,7 @@ jobs:
           restore-keys: ${{ runner.os }}-lein-
 
       - name: Build site
-        run: lein run
+        run: lein run build
 
       - name: Deploy to GitHub Pages
         run: |

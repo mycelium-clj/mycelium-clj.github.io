@@ -72,9 +72,11 @@
 
 (defn -main [& args]
   (generate!)
-  (let [port (Integer/parseInt (or (first args) "3000"))]
-    (println (str "Site generated. Starting server at http://localhost:" port))
-    (jetty/run-jetty (app) {:port port :join? true})))
+  (if (= (first args) "build")
+    (println "Site generated in" output-dir)
+    (let [port (Integer/parseInt (or (first args) "3000"))]
+      (println (str "Site generated. Starting server at http://localhost:" port))
+      (jetty/run-jetty (app) {:port port :join? true}))))
 
 (comment
   (generate!)
