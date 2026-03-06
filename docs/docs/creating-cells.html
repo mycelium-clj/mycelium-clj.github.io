@@ -62,7 +62,7 @@
       <ol class="contents"><li><a href="#creating_cells">Creating Cells</a></li><li><a href="#cell_registration">Cell Registration</a></li><li><a href="#cell_spec_fields">Cell Spec Fields</a></li><li><a href="#handler_signature">Handler Signature</a></li><li><a href="#output_schema_formats">Output Schema Formats</a></li><li><a href="#rules">Rules</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li><li><a href="#common_patterns">Common Patterns</a></li><li><a href="#resource-dependent_cell">Resource-dependent cell</a></li><li><a href="#async_cell_(external_api_call)">Async cell (external API call)</a></li></ol>
       
       <div id="content">
-        <h1 id="creating&#95;cells">Creating Cells</h1><p>Cells are the atomic units of Mycelium. Each cell is a pure function with explicit schema contracts.</p><h2 id="cell&#95;registration">Cell Registration</h2><p>Register cells via <code>defmethod</code> on the <code>cell/cell-spec</code> multimethod:</p><pre><code class="clojure">&#40;ns my-app.cells.auth
+        <h1 id="creating&#95;cells">Creating Cells</h1><p>Cells are the atomic units of Mycelium, analogous to microservices. Each cell represents a single step in a workflow and can perform IO and side effects. Cells have explicit schema contracts, and the state a cell returns is used by the workflow engine to decide which cell to run next.</p><h2 id="cell&#95;registration">Cell Registration</h2><p>Register cells via <code>defmethod</code> on the <code>cell/cell-spec</code> multimethod:</p><pre><code class="clojure">&#40;ns my-app.cells.auth
   &#40;:require &#91;mycelium.cell :as cell&#93;&#41;&#41;
 
 &#40;defmethod cell/cell-spec :auth/parse-request &#91;&#95;&#93;
