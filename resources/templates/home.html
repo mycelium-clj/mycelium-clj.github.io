@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block header %}
+<div id="hero">
+  <h2>Schema-Enforced Web Development in Clojure</h2>
+  <p>
+    Mycelium is a workflow-driven framework for building web applications
+    from composable, validated cells with first-class LLM support.
+  </p>
+</div>
+{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="column column-33">
+    <div class="column-wrapper">
+      <h2>Cells &amp; Workflows</h2>
+      <p>
+        Build applications from pure functions with explicit input/output schemas
+      </p>
+      <ul class="slogan">
+        <li>Compile-time data flow validation</li>
+        <li>Accumulating data model</li>
+        <li>Directed graph composition</li>
+      </ul>
+    </div>
+  </div>
+  <div class="column column-33">
+    <div class="column-wrapper">
+      <h2>Developer Friendly</h2>
+      <p>
+        Start hacking immediately with REPL-driven development and hot-reloading
+      </p>
+      <ul class="slogan">
+        <li>Simple and easy to learn</li>
+        <li>Integrant-managed components</li>
+        <li>Powerful testing tools</li>
+      </ul>
+    </div>
+  </div>
+  <div class="column column-33">
+    <div class="column-wrapper">
+      <h2>Production Ready</h2>
+      <p>
+        Built for the demands of production systems on the JVM
+      </p>
+      <ul class="slogan">
+        <li>Resilience policies built-in</li>
+        <li>LLM agent orchestration</li>
+        <li>Horizontal scalability</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="column-wrapper" id="easy-start">
+  <p>Using <a href="https://github.com/babashka/neil">neil</a> and <a href="https://clojure.org/guides/getting_started">Clojure tools</a>, getting started is as easy as:</p>
+  <pre class="bash hljs">
+    <span class="prompt">$ </span><span class="cmd">brew install clojure/tools/clojure babashka/brew/neil</span>
+    <span class="prompt">$ </span><span class="cmd">neil new io.github.mycelium-clj/web yourname/guestbook</span>
+  </pre>
+</div>
+{% endblock %}
