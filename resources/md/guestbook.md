@@ -119,7 +119,7 @@ The `web` namespace is used to define the edges of your application that deal wi
 
 #### guestbook.cells
 
-The `cells` namespace is where Mycelium cell definitions live. Cells are pure functions with explicit input/output schemas.
+The `cells` namespace is where Mycelium cell definitions live. Cells are functions with explicit input/output schemas. You can think of them as being akin to microservices. Each one accepts resources and a state map, then returns a new state that propagates in the workflow. These functions can do IO and produce side effects.
 
 * `home.clj` - cell definitions for the default home page
 
@@ -133,7 +133,7 @@ The `workflows` namespace is where Mycelium workflow definitions live. Workflows
 
 Mycelium applications are built from two core concepts:
 
-**Cells** are pure functions with explicit input/output schemas. Each cell is registered via `defmethod` and receives a resources map and a data map:
+**Cells** represent individual steps in a workflow, similar to microservices. Each cell can do IO and produce side effects, and the state it returns is used by the workflow engine to decide which cell to run next. Cells have explicit input/output schemas and are registered via `defmethod`, receiving a resources map and a data map:
 
 ```clojure
 (defmethod cell/cell-spec :request/parse-home [_]
