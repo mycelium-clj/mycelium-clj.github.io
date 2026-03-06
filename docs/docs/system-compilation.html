@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>System Compilation</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#system-level_compilation">System-Level Compilation</a></li><li><a href="#compiling_a_system">Compiling a System</a></li><li><a href="#system_structure">System Structure</a></li><li><a href="#query_functions">Query Functions</a></li><li><a href="#use_cases">Use Cases</a></li><li><a href="#startup_health_check">Startup health check</a></li><li><a href="#schema_drift_detection">Schema drift detection</a></li><li><a href="#dependency_analysis">Dependency analysis</a></li></ol>
+      
+      <div id="content">
+        <h1 id="system-level&#95;compilation">System-Level Compilation</h1><p>The system compilation module provides a bird's-eye view of all workflows in an application, enabling cross-workflow queries and conflict detection at startup.</p><h2 id="compiling&#95;a&#95;system">Compiling a System</h2><pre><code class="clojure">&#40;require '&#91;mycelium.core :as myc&#93;&#41;
+&#40;require '&#91;mycelium.manifest :as manifest&#93;&#41;
+
+&#40;def system
+  &#40;myc/compile-system
+    {&quot;/dashboard&quot;  &#40;manifest/load-manifest &#40;str &#40;io/resource &quot;workflows/dashboard.edn&quot;&#41;&#41;&#41;
+     &quot;/orders&quot;     &#40;manifest/load-manifest &#40;str &#40;io/resource &quot;workflows/order-summary.edn&quot;&#41;&#41;&#41;
+     &quot;/users&quot;      &#40;manifest/load-manifest &#40;str &#40;io/resource &quot;workflows/user-list.edn&quot;&#41;&#41;&#41;
+     &quot;/login&quot;      &#40;manifest/load-manifest &#40;str &#40;io/resource &quot;workflows/login-page.edn&quot;&#41;&#41;&#41;}&#41;&#41;
+</code></pre><p>Input: a map of route (or name) → validated manifest.</p><h2 id="system&#95;structure">System Structure</h2><pre><code class="clojure">{:routes
+ {&quot;/dashboard&quot; {:manifest-id :dashboard
+                :cells #{:auth/extract-cookie-session :auth/validate-session
+                         :user/fetch-profile :ui/render-dashboard :ui/render-error}
+                :requires #{:db}
+                :input-schema &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;}}
+
+ :cells
+ {:auth/extract-cookie-session {:used-by &#91;&quot;/dashboard&quot; &quot;/orders&quot; &quot;/users&quot;&#93;
+                                 :schema {:input &#91;...&#93; :output {...}}}
+  :ui/render-error              {:used-by &#91;&quot;/dashboard&quot; &quot;/orders&quot; &quot;/users&quot; &quot;/login&quot;&#93;
+                                 :schema {:input &#91;...&#93; :output &#91;...&#93;}}}
+
+ :shared-cells #{:auth/extract-cookie-session :auth/validate-session :ui/render-error}
+ :resources-needed #{:db}
+ :warnings &#91;...&#93;}
+</code></pre><h2 id="query&#95;functions">Query Functions</h2><pre><code class="clojure">&#40;require '&#91;mycelium.system :as sys&#93;&#41;
+
+;; Which routes use a specific cell?
+&#40;sys/cell-usage system :auth/validate-session&#41;
+;; =&gt; &#91;&quot;/dashboard&quot; &quot;/orders&quot; &quot;/users&quot;&#93;
+
+;; What cells does a route use?
+&#40;sys/route-cells system &quot;/orders&quot;&#41;
+;; =&gt; #{:auth/extract-cookie-session :auth/validate-session
+;;      :user/fetch-profile :user/fetch-orders :ui/render-order-summary :ui/render-error}
+
+;; What resources does a route need?
+&#40;sys/route-resources system &quot;/orders&quot;&#41;
+;; =&gt; #{:db}
+
+;; Find cells with different schemas across workflows
+&#40;sys/schema-conflicts system&#41;
+;; =&gt; &#91;{:cell-id :auth/validate-session
+;;      :routes {&quot;/dashboard&quot; {:input &#91;...&#93; :output {...}}
+;;               &quot;/orders&quot;    {:input &#91;...&#93; :output {...}}}}&#93;
+;; Empty vector = no conflicts
+
+;; Generate DOT graph of the full system
+&#40;sys/system-&gt;dot system&#41;
+;; =&gt; &quot;digraph system { ... }&quot; — pipe to `dot -Tpng`
+</code></pre><h2 id="use&#95;cases">Use Cases</h2><h3 id="startup&#95;health&#95;check">Startup health check</h3><pre><code class="clojure">&#40;let &#91;system &#40;myc/compile-system route-manifest-map&#41;&#93;
+  &#40;when &#40;seq &#40;:warnings system&#41;&#41;
+    &#40;log/warn &quot;System warnings:&quot; &#40;:warnings system&#41;&#41;&#41;
+  &#40;log/info &quot;System compiled:&quot;
+            &#40;count &#40;:routes system&#41;&#41; &quot;routes,&quot;
+            &#40;count &#40;:cells system&#41;&#41; &quot;unique cells,&quot;
+            &#40;count &#40;:shared-cells system&#41;&#41; &quot;shared cells,&quot;
+            &quot;resources needed:&quot; &#40;:resources-needed system&#41;&#41;&#41;
+</code></pre><h3 id="schema&#95;drift&#95;detection">Schema drift detection</h3><pre><code class="clojure">&#40;let &#91;conflicts &#40;sys/schema-conflicts system&#41;&#93;
+  &#40;when &#40;seq conflicts&#41;
+    &#40;throw &#40;ex-info &quot;Schema conflicts detected across workflows&quot;
+                    {:conflicts conflicts}&#41;&#41;&#41;&#41;
+</code></pre><h3 id="dependency&#95;analysis">Dependency analysis</h3><pre><code class="clojure">;; Find all routes that need a specific resource
+&#40;for &#91;&#91;route info&#93; &#40;:routes system&#41;
+      :when &#40;contains? &#40;:requires info&#41; :db&#41;&#93;
+  route&#41;
+</code></pre>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

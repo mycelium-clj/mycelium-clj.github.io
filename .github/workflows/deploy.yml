@@ -37,11 +37,9 @@ jobs:
 
       - name: Deploy to GitHub Pages
         run: |
-          rm -rf docs
-          mv static docs
           git config user.email "dmitri.sotnikov@gmail.com"
           git config user.name "Dmitri Sotnikov"
-          git add --all
+          git add docs/
           if [ -n "$(git status --porcelain)" ]; then
             git commit -m "Deploy #${{ github.run_number }}"
             git push

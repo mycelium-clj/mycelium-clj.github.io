@@ -16,8 +16,10 @@
 
 (add-filter! :markdown (fn [content] [:safe (md-to-html-string content)]))
 
+(def output-dir "docs")
+
 (defn render-page [[url template params]]
-  (let [path (str "static" url)]
+  (let [path (str output-dir url)]
     (io/make-parents path)
     (spit path (parser/render-file (str template) (assoc params :page template)))))
 
@@ -47,11 +49,9 @@
      ["/contribute.html" "contribute.html" {:content (util/slurp-resource "md/contributing.md")}]]
     (map (partial doc-page docs) (keys (dissoc docs :docs-by-topic :topics)))))
 
-(def static-dir "static")
-
 (defn generate! []
-  (fs/delete-dir static-dir)
-  (fs/copy-dir "resources/static" static-dir)
+  (fs/delete-dir output-dir)
+  (fs/copy-dir "resources/static" output-dir)
   (doseq [page (pages (util/generate-docs))]
     (render-page page)))
 
@@ -65,7 +65,7 @@
 
 (defn app []
   (-> (constantly {:status 404 :headers {} :body "Not found"})
-      (wrap-file static-dir {:index-files? false})
+      (wrap-file output-dir {:index-files? false})
       wrap-content-type
       wrap-not-modified
       wrap-index))

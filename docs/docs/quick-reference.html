@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Quick Reference</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#mycelium_quick_reference">Mycelium Quick Reference</a></li><li><a href="#core_api">Core API</a></li><li><a href="#compilation_options">Compilation Options</a></li><li><a href="#accumulating_data_model">Accumulating Data Model</a></li><li><a href="#cell_registration">Cell Registration</a></li><li><a href="#cell_registry_helpers">Cell Registry Helpers</a></li><li><a href="#workflow_definition">Workflow Definition</a></li><li><a href="#pipeline_shorthand">Pipeline Shorthand</a></li><li><a href="#branching">Branching</a></li><li><a href="#default_transitions">Default Transitions</a></li><li><a href="#graph-level_timeouts">Graph-Level Timeouts</a></li><li><a href="#error_groups">Error Groups</a></li><li><a href="#join_nodes_(fork-join)">Join Nodes (Fork-Join)</a></li><li><a href="#key_concepts">Key Concepts</a></li><li><a href="#join_options">Join Options</a></li><li><a href="#output_key_conflicts">Output Key Conflicts</a></li><li><a href="#join_error_handling">Join Error Handling</a></li><li><a href="#join_trace">Join Trace</a></li><li><a href="#interceptors">Interceptors</a></li><li><a href="#parameterized_cells">Parameterized Cells</a></li><li><a href="#resilience_policies">Resilience Policies</a></li><li><a href="#manifest_loading">Manifest Loading</a></li><li><a href="#manifest_cell_fields">Manifest Cell Fields</a></li><li><a href="#manifest_validation">Manifest Validation</a></li><li><a href="#fragment_api">Fragment API</a></li><li><a href="#subworkflows_(nested_composition)">Subworkflows (Nested Composition)</a></li><li><a href="#output_schema_formats">Output Schema Formats</a></li><li><a href="#constraints">Constraints</a></li><li><a href="#compile-time_validation">Compile-Time Validation</a></li><li><a href="#edge_targets">Edge Targets</a></li><li><a href="#ring_middleware">Ring Middleware</a></li><li><a href="#dev_tools">Dev Tools</a></li><li><a href="#agent_orchestration">Agent Orchestration</a></li><li><a href="#regions">Regions</a></li><li><a href="#workflow_trace">Workflow Trace</a></li><li><a href="#asserting_on_traces">Asserting on Traces</a></li><li><a href="#system_queries">System Queries</a></li><li><a href="#halt_&amp;_resume_(human-in-the-loop)">Halt & Resume (Human-in-the-Loop)</a></li><li><a href="#halting">Halting</a></li><li><a href="#resuming">Resuming</a></li><li><a href="#key_behaviors">Key Behaviors</a></li><li><a href="#persistent_store">Persistent Store</a></li><li><a href="#workflow_result_keys">Workflow Result Keys</a></li></ol>
+      
+      <div id="content">
+        <h1 id="mycelium&#95;quick&#95;reference">Mycelium Quick Reference</h1><h2 id="core&#95;api">Core API</h2><pre><code class="clojure">&#40;require '&#91;mycelium.core :as myc&#93;&#41;
+
+;; Pre-compile once at startup &#40;recommended for production&#41;
+&#40;def compiled &#40;myc/pre-compile workflow-def opts&#41;&#41;
+
+;; Run a pre-compiled workflow &#40;zero compilation overhead&#41;
+&#40;myc/run-compiled compiled resources initial-data&#41;
+&#40;myc/run-compiled-async compiled resources initial-data&#41;  ;; returns a future
+
+;; Convenience: compile + run in one step &#40;re-compiles every call&#41;
+&#40;myc/run-workflow workflow-def resources initial-data&#41;
+&#40;myc/run-workflow workflow-def resources initial-data opts&#41;
+
+;; Async convenience &#40;returns a future&#41;
+&#40;myc/run-workflow-async workflow-def resources initial-data&#41;
+
+;; Resume a halted workflow &#40;human-in-the-loop&#41;
+&#40;myc/resume-compiled compiled resources halted-result&#41;
+&#40;myc/resume-compiled compiled resources halted-result {:human-input &quot;value&quot;}&#41;
+
+;; Compile a system &#40;all workflows&#41;
+&#40;myc/compile-system {&quot;/route&quot; manifest, ...}&#41;
+</code></pre><h3 id="compilation&#95;options">Compilation Options</h3><p><code>pre-compile</code> and <code>run-workflow</code> accept an opts map:</p><pre><code class="clojure">{:pre      &#40;fn &#91;fsm-state resources&#93; fsm-state&#41;  ;; pre-interceptor for every state
+ :post     &#40;fn &#91;fsm-state resources&#93; fsm-state&#41;  ;; post-interceptor for every state
+ :on-error &#40;fn &#91;resources fsm-state&#93; data&#41;        ;; runs when FSM enters error state
+ :on-end   &#40;fn &#91;resources fsm-state&#93; data&#41;}       ;; runs when FSM enters end state
+</code></pre><h2 id="accumulating&#95;data&#95;model">Accumulating Data Model</h2><p>Cells communicate through an accumulating data map. Every cell receives the full map of all keys produced by every prior cell in the path. Cells <code>assoc</code> their outputs and the enriched map flows forward.</p><pre><code>start → validate → fetch-profile → fetch-orders → render
+         adds :user-id  adds :profile   adds :orders   needs :profile AND :orders
+</code></pre><p>A cell can depend on data produced several steps earlier without special wiring — keys persist through intermediate cells. The schema chain validator walks each path and confirms required keys are available from upstream outputs.</p><h2 id="cell&#95;registration">Cell Registration</h2><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;&#41;
+
+&#40;defmethod cell/cell-spec :namespace/cell-id &#91;&#95;&#93;
+  {:id       :namespace/cell-id
+   :handler  &#40;fn &#91;resources data&#93; &#40;assoc data :result &quot;value&quot;&#41;&#41;
+   :schema   {:input  &#91;:map &#91;:key :type&#93;&#93;
+              :output &#91;:map &#91;:result :string&#93;&#93;}
+   :requires &#91;:db&#93;         ;; optional — resource dependencies
+   :async?   true          ;; optional — async handler signature
+   :doc      &quot;...&quot;}&#41;       ;; optional
+
+;; Async handler signature &#40;4-arity with callbacks&#41;:
+;; &#40;fn &#91;resources data callback error-callback&#93; ...&#41;
+</code></pre><h3 id="cell&#95;registry&#95;helpers">Cell Registry Helpers</h3><pre><code class="clojure">&#40;cell/list-cells&#41;                     ;; =&gt; &#40;:ns/a :ns/b ...&#41; — all registered IDs
+&#40;cell/get-cell :ns/id&#41;                ;; =&gt; spec map or nil
+&#40;cell/get-cell! :ns/id&#41;               ;; =&gt; spec map or throws
+&#40;cell/set-cell-schema! :ns/id schema&#41; ;; overwrite schema on registered cell
+&#40;cell/clear-registry!&#41;                ;; remove all cells &#40;testing only&#41;
+</code></pre><h2 id="workflow&#95;definition">Workflow Definition</h2><pre><code class="clojure">{:cells       {:start :cell/id, :step2 :cell/id2}    ;; or {:id :cell/id :params {...}}
+ :edges       {:start {:label :step2}, :step2 {:done :end}}
+ :dispatches  {:start &#91;&#91;:label &#40;fn &#91;data&#93; &#40;:key data&#41;&#41;&#93;&#93;
+               :step2 &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;}
+ :joins       {:join-name {:cells &#91;:a :b&#93; :strategy :parallel}}  ;; optional
+ :input-schema &#91;:map &#91;:key :type&#93;&#93;                                ;; optional
+ :interceptors &#91;{:id :x :scope :all :pre &#40;fn &#91;d&#93; d&#41;}&#93;            ;; optional
+ :resilience  {:start {:timeout {:timeout-ms 5000}}}              ;; optional
+}
+</code></pre><h3 id="pipeline&#95;shorthand">Pipeline Shorthand</h3><pre><code class="clojure">;; Instead of :edges + :dispatches for linear flows:
+{:pipeline &#91;:start :process :render&#93;
+ :cells    {:start :cell/a, :process :cell/b, :render :cell/c}}
+;; Expands to :edges {:start :process, :process :render, :render :end}
+;; Mutually exclusive with :edges, :dispatches, :fragments, :joins
+</code></pre><h3 id="branching">Branching</h3><p>Edges map transition labels to targets. Dispatch predicates examine data to pick the edge:</p><pre><code class="clojure">{:cells {:start :check/threshold
+         :big   :process/big-values
+         :small :process/small-values}
+ :edges {:start {:high :big, :low :small}
+         :big   {:done :end}
+         :small {:done :end}}
+ :dispatches {:start &#91;&#91;:high &#40;fn &#91;data&#93; &#40;&gt; &#40;:value data&#41; 10&#41;&#41;&#93;
+                      &#91;:low  &#40;fn &#91;data&#93; &#40;&lt;= &#40;:value data&#41; 10&#41;&#41;&#93;&#93;
+              :big   &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;
+              :small &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;}}
+</code></pre><p>Handlers compute data; dispatch predicates decide the route.</p><h3 id="default&#95;transitions">Default Transitions</h3><p>Use <code>:default</code> as an edge label for a catch-all fallback when no other dispatch predicate matches:</p><pre><code class="clojure">{:cells {:start :check/validate, :ok :process/run, :err :process/error}
+ :edges {:start {:success :ok, :default :err}
+         :ok :end, :err :end}
+ :dispatches {:start &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;&#93;}}
+;; :default auto-generates &#40;constantly true&#41; as the last predicate
+;; No need to add &#91;:default ...&#93; to :dispatches
+</code></pre><ul><li><code>:default</code> must not be the only edge (use an unconditional keyword edge instead)</li><li>You can provide an explicit <code>:default</code> predicate in <code>:dispatches</code> to override the auto-generated one</li><li><code>:default</code> is always evaluated last, even if listed first in <code>:dispatches</code></li><li>Works with join nodes — add <code>:default</code> alongside <code>:done</code>/<code>:failure</code> edges</li><li>Trace entries record <code>:default</code> as the transition label</li></ul><h3 id="graph-level&#95;timeouts">Graph-Level Timeouts</h3><p>Move timeout logic from handlers to the workflow definition. When a cell exceeds its timeout, the framework injects <code>:mycelium/timeout true</code> into data and routes to the <code>:timeout</code> edge target:</p><pre><code class="clojure">{:cells {:fetch-tags :mp3/parse-id3
+         :render     :ui/render-tags
+         :fallback   :ui/show-error}
+ :edges {:fetch-tags {:done :render, :timeout :fallback}
+         :render     :end
+         :fallback   :end}
+ :dispatches {:fetch-tags &#91;&#91;:done &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/timeout d&#41;&#41;&#41;&#93;&#93;}
+ :timeouts {:fetch-tags 5000}}  ;; ms
+</code></pre><ul><li>Timeout values must be positive integers (milliseconds)</li><li>Cells with timeouts must have a <code>:timeout</code> edge target</li><li>A <code>:timeout</code> dispatch predicate is auto-injected and evaluated <strong>first</strong> (before user predicates)</li><li>Works with both sync and async cells (async cells become blocking with timeout)</li><li>Output schema validation is skipped for timed-out cells (handler didn't produce normal output)</li><li>Trace entries include <code>:timeout? true</code> when a cell times out</li><li>Distinct from resilience <code>:timeout</code> policies — graph timeouts <strong>route</strong>, resilience timeouts <strong>error</strong></li></ul><h3 id="error&#95;groups">Error Groups</h3><p>Declare shared error handling for sets of cells. If any cell in the group throws, the framework catches the exception, injects <code>:mycelium/error</code> into data, and routes to the group's error handler:</p><pre><code class="clojure">{:cells {:fetch     :data/fetch
+         :transform :data/transform
+         :err       :data/handle-error}
+ :edges {:fetch     :transform
+         :transform :end
+         :err       :end}
+ :error-groups {:pipeline {:cells &#91;:fetch :transform&#93;
+                            :on-error :err}}}
+</code></pre><ul><li>At compile time, unconditional edges are expanded to map edges with <code>:on-error</code> target</li><li><code>:on-error</code> dispatch predicate is auto-injected and evaluated first</li><li><code>:mycelium/error</code> contains <code>{:cell :cell-name, :message &quot;...&quot;}</code> — available to the error handler</li><li>Output schema validation is skipped for errored cells</li><li>Error handler cells can <code>dissoc :mycelium/error</code> to clean up</li><li>Grouped cells must exist, error handler must exist, no cell in multiple groups</li></ul><h2 id="join&#95;nodes&#95;(fork-join)">Join Nodes (Fork-Join)</h2><p>When multiple independent cells can run concurrently, declare a join node:</p><pre><code class="clojure">{:cells {:start          :auth/validate-session
+         :fetch-profile  :user/fetch-profile     ;; join member
+         :fetch-orders   :user/fetch-orders      ;; join member
+         :render-summary :ui/render-summary
+         :render-error   :ui/render-error}
+
+ :joins {:fetch-data {:cells    &#91;:fetch-profile :fetch-orders&#93;
+                      :strategy :parallel}}
+
+ :edges {:start          {:authorized :fetch-data, :unauthorized :render-error}
+         :fetch-data     {:done :render-summary, :failure :render-error}
+         :render-summary {:done :end}
+         :render-error   {:done :end}}
+
+ :dispatches {:start &#91;&#91;:authorized   &#40;fn &#91;d&#93; &#40;:session-valid d&#41;&#41;&#93;
+                       &#91;:unauthorized &#40;fn &#91;d&#93; &#40;not &#40;:session-valid d&#41;&#41;&#41;&#93;&#93;
+              :render-summary &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;
+              :render-error   &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;}}
+</code></pre><h3 id="key&#95;concepts">Key Concepts</h3><ul><li><strong>Join members</strong> (<code>:fetch-profile</code>, <code>:fetch-orders</code>) exist in <code>:cells</code> but have <strong>no entries in <code>:edges</code></strong> — the join consumes them</li><li>The <strong>join name</strong> (<code>:fetch-data</code>) appears in <code>:edges</code> like a regular cell</li><li>Each member receives the <strong>same input snapshot</strong> — branches cannot see each other's outputs</li><li>After all branches complete, results are merged into the data map</li><li>Default dispatches <code>:done</code> / <code>:failure</code> are provided based on whether any branch threw an exception</li></ul><h3 id="join&#95;options">Join Options</h3><table><thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead><tbody><tr><td><code>:cells</code></td><td>(required)</td><td>Vector of cell names to run</td></tr><tr><td><code>:strategy</code></td><td><code>:parallel</code></td><td><code>:parallel</code> or <code>:sequential</code></td></tr><tr><td><code>:merge-fn</code></td><td><code>nil</code></td><td><code>&#40;fn &#91;data results-vec&#93;&#41;</code> — custom merge when output keys overlap</td></tr><tr><td><code>:timeout-ms</code></td><td><code>30000</code></td><td>Timeout for async cells within the join</td></tr></tbody></table><h3 id="output&#95;key&#95;conflicts">Output Key Conflicts</h3><p>At compile time, output keys from all join members are checked for overlap:</p><ul><li><strong>No <code>:merge-fn</code></strong> — compile-time error listing conflicting keys</li><li><strong><code>:merge-fn</code> provided</strong> — user handles conflict resolution<pre><code class="clojure">;; Both cells produce :items — requires :merge-fn
+:joins {:gather {:cells    &#91;:source-a :source-b&#93;
+                 :merge-fn &#40;fn &#91;data results&#93;
+                             &#40;assoc data :items
+                                    &#40;vec &#40;mapcat :items results&#41;&#41;&#41;&#41;}}
+</code></pre></li></ul><h3 id="join&#95;error&#95;handling">Join Error Handling</h3><p>All branches run to completion (no early cancellation). Errors are collected in <code>:mycelium/join-error</code>. The join's default dispatches route to <code>:failure</code> when errors are present:</p><pre><code class="clojure">:edges {:fetch-data {:done :render-summary, :failure :render-error}}
+</code></pre><h3 id="join&#95;trace">Join Trace</h3><p>Each join produces a trace entry with per-member timing:</p><pre><code class="clojure">{:cell :fetch-data
+ :cell-id :mycelium.join/fetch-data
+ :transition :done
+ :join-traces &#91;{:cell :fetch-profile, :cell-id :user/fetch-profile,
+                :duration-ms 12.3, :status :ok}
+               {:cell :fetch-orders, :cell-id :user/fetch-orders,
+                :duration-ms 8.7, :status :ok}&#93;}
+</code></pre><h2 id="interceptors">Interceptors</h2><p>Workflow-level interceptors wrap cell handlers at compile time:</p><pre><code class="clojure">:interceptors &#91;{:id    :log-timing
+                :scope :all                              ;; every cell
+                :pre   &#40;fn &#91;data&#93; &#40;assoc data ::t0 &#40;System/nanoTime&#41;&#41;&#41;
+                :post  &#40;fn &#91;data&#93; &#40;dissoc data ::t0&#41;&#41;}
+
+               {:id    :ui-only
+                :scope {:id-match &quot;ui/&#42;&quot;}                ;; glob on cell :id
+                :pre   &#40;fn &#91;data&#93; data&#41;}
+
+               {:id    :targeted
+                :scope {:cells &#91;:render :fetch&#93;}         ;; explicit cell names
+                :post  &#40;fn &#91;data&#93; data&#41;}&#93;
+</code></pre><p>Scope forms:</p><table><thead><tr><th>Scope</th><th>Matches</th></tr></thead><tbody><tr><td><code>:all</code></td><td>Every cell</td></tr><tr><td><code>{:id-match &quot;ui/&#42;&quot;}</code></td><td>Cell registry <code>:id</code> matching glob (e.g. <code>:ui/render-dashboard</code>)</td></tr><tr><td><code>{:cells &#91;:x :y&#93;}</code></td><td>Specific workflow cell names</td></tr></tbody></table><p>Interceptor <code>:pre</code>/<code>:post</code> receive and return the <code>data</code> map (not fsm-state).</p><h2 id="parameterized&#95;cells">Parameterized Cells</h2><p>Reuse the same handler with different config by passing a map instead of a bare keyword:</p><pre><code class="clojure">{:cells {:triple {:id :math/multiply :params {:factor 3}}
+         :double {:id :math/multiply :params {:factor 2}}}
+ :pipeline &#91;:triple :double&#93;}
+</code></pre><p>Params are injected as <code>:mycelium/params</code> in the data map and cleaned up after each step. Access via <code>&#40;get-in data &#91;:mycelium/params :factor&#93;&#41;</code>.</p><h2 id="resilience&#95;policies">Resilience Policies</h2><p>Wrap cells with <a href='https://github.com/resilience4j/resilience4j'>resilience4j</a> policies via <code>:resilience</code>:</p><pre><code class="clojure">{:cells {:start :api/call, :fallback :ui/error}
+ :edges {:start {:done :end, :failed :fallback}, :fallback :end}
+ :dispatches {:start &#91;&#91;:failed &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/resilience-error d&#41;&#41;&#41;&#93;
+                       &#91;:done   &#40;fn &#91;d&#93; &#40;nil? &#40;:mycelium/resilience-error d&#41;&#41;&#41;&#93;&#93;}
+ :resilience {:start {:timeout        {:timeout-ms 5000}
+                       :retry          {:max-attempts 3 :wait-ms 200}
+                       :circuit-breaker {:failure-rate 50 :minimum-calls 10
+                                         :sliding-window-size 100 :wait-in-open-ms 60000}
+                       :bulkhead       {:max-concurrent 25 :max-wait-ms 0}
+                       :rate-limiter   {:limit-for-period 50
+                                        :limit-refresh-period-ms 500 :timeout-ms 5000}
+                       :async-timeout-ms 30000}}}
+</code></pre><p>When triggered, handler returns data with <code>:mycelium/resilience-error</code> (map with <code>:type</code>, <code>:cell</code>, <code>:message</code>). Error types: <code>:timeout</code>, <code>:circuit-open</code>, <code>:bulkhead-full</code>, <code>:rate-limited</code>, <code>:unknown</code>.</p><p>Stateful policies (circuit breaker, rate limiter) require <code>pre-compile</code> + <code>run-compiled</code> to share state across calls.</p><p><code>:async-timeout-ms</code> controls how long the resilience wrapper waits for an async handler's promise (default 30s). Independent of the resilience4j <code>:timeout</code> policy.</p><h2 id="manifest&#95;loading">Manifest Loading</h2><pre><code class="clojure">&#40;require '&#91;mycelium.manifest :as manifest&#93;&#41;
+
+&#40;def m &#40;manifest/load-manifest &quot;path/to/file.edn&quot;&#41;&#41;
+&#40;def wf &#40;manifest/manifest-&gt;workflow m&#41;&#41;
+&#40;manifest/cell-brief m :cell-name&#41;  ;; LLM-friendly prompt
+</code></pre><h3 id="manifest&#95;cell&#95;fields">Manifest Cell Fields</h3><pre><code class="clojure">{:id       :namespace/name    ;; cell registry ID
+ :schema   {:input  &#91;...&#93;     ;; Malli schema
+            :output &#91;...&#93;}    ;; single or per-transition
+ :doc      &quot;...&quot;              ;; optional description
+ :requires &#91;:db&#93;              ;; optional resource dependencies
+ :on-error :cell-name}        ;; or nil — required in strict mode &#40;default&#41;
+</code></pre><p>Use <code>:schema :inherit</code> to resolve schema from the cell registry (avoids duplicating schemas in manifest):</p><pre><code class="clojure">{:id :user/fetch-profile
+ :schema :inherit             ;; pulls :input/:output from cell/cell-spec
+ :on-error :error-handler}
+</code></pre><h3 id="manifest&#95;validation">Manifest Validation</h3><pre><code class="clojure">&#40;manifest/validate-manifest manifest&#41;                ;; strict mode &#40;default&#41;
+&#40;manifest/validate-manifest manifest {:strict? false}&#41; ;; skip :on-error requirement
+</code></pre><h2 id="fragment&#95;api">Fragment API</h2><pre><code class="clojure">&#40;require '&#91;mycelium.fragment :as fragment&#93;&#41;
+
+&#40;fragment/load-fragment &quot;fragments/auth.edn&quot;&#41;              ;; load from classpath
+&#40;fragment/validate-fragment fragment-data&#41;                  ;; validate structure
+&#40;fragment/expand-fragment frag mapping host-cells&#41;          ;; expand one
+&#40;fragment/expand-all-fragments manifest&#41;                    ;; expand all
+</code></pre><p>Manifest fragment references support classpath refs or inline data:</p><pre><code class="clojure">:fragments
+  {:auth {:ref &quot;fragments/auth.edn&quot;             ;; loaded from classpath
+          :as :start
+          :exits {:success :dashboard, :failure :login-error}}
+   :log  {:fragment {...inline fragment data...} ;; inline definition
+          :as :start
+          :exits {:success :next-step}}}
+</code></pre><h2 id="subworkflows&#95;(nested&#95;composition)">Subworkflows (Nested Composition)</h2><p>Wrap a workflow as a single opaque cell. See <a href='subworkflows.md'>subworkflows.md</a>.</p><pre><code class="clojure">&#40;require '&#91;mycelium.compose :as compose&#93;&#41;
+
+;; Register a workflow as a reusable cell
+&#40;compose/register-workflow-cell!
+  :payment/flow
+  {:cells {...} :edges {...} :dispatches {...}}
+  {:input &#91;:map ...&#93; :output &#91;:map ...&#93;}&#41;
+
+;; Or create spec without registering
+&#40;compose/workflow-&gt;cell :payment/flow workflow-def schema&#41;
+</code></pre><p>Default dispatches <code>:success</code> / <code>:failure</code> are provided automatically based on <code>:mycelium/error</code>.</p><p>Output schema is inferred automatically by walking child workflow edges to <code>:end</code> and collecting output keys. Pass an explicit <code>:output</code> schema to override.</p><h2 id="output&#95;schema&#95;formats">Output Schema Formats</h2><pre><code class="clojure">;; Single &#40;all transitions&#41;
+:output &#91;:map &#91;:result :int&#93;&#93;
+
+;; Per-transition
+:output {:success &#91;:map &#91;:data :string&#93;&#93;
+         :failure &#91;:map &#91;:error :string&#93;&#93;}
+</code></pre><p>Per-transition schemas are validated based on which dispatch matched. The schema chain validator tracks available keys independently per path.</p><h2 id="constraints">Constraints</h2><p>Declare compile-time path invariants that are checked against all enumerated paths:</p><pre><code class="clojure">{:constraints &#91;{:type :must-follow,      :if :flag-missing, :then :apply-tags}
+               {:type :must-precede,     :cell :validate,   :before :process}
+               {:type :never-together,   :cells &#91;:manual-review :auto-approve&#93;}
+               {:type :always-reachable, :cell :audit-log}&#93;}
+</code></pre><table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody><tr><td><code>:must-follow</code></td><td>If <code>:if</code> cell appears on a path, <code>:then</code> cell must appear later on that path</td></tr><tr><td><code>:must-precede</code></td><td><code>:cell</code> must appear before <code>:before</code> on every path containing <code>:before</code></td></tr><tr><td><code>:never-together</code></td><td>All listed <code>:cells</code> must never appear on the same path</td></tr><tr><td><code>:always-reachable</code></td><td><code>:cell</code> must appear on every path that reaches <code>:end</code> (ignores <code>:error</code>/<code>:halt</code> paths)</td></tr></tbody></table><ul><li>Constraints reference <strong>workflow cell names</strong> (including join names), not join member cells or cell registry IDs</li><li><code>:always-reachable</code> passes vacuously if no paths reach <code>:end</code> (all paths go to <code>:error</code>/<code>:halt</code>)</li><li>Violations throw at compile time with the specific path that violates the constraint</li></ul><h2 id="compile-time&#95;validation">Compile-Time Validation</h2><p><code>compile-workflow</code> validates before any code runs:</p><ul><li><strong>Cell existence</strong> — all referenced cells must be registered</li><li><strong>Edge targets</strong> — must point to valid cells, join names, or <code>:end</code>/<code>:error</code>/<code>:halt</code></li><li><strong>Reachability</strong> — every cell and join must be reachable from <code>:start</code></li><li><strong>Dispatch coverage</strong> — every edge label must have a dispatch predicate, and vice versa</li><li><strong>Schema chain</strong> — each cell's input keys must be available from upstream outputs (join-aware)</li><li><strong>Constraints</strong> — path invariants checked against all enumerated paths (see Constraints)</li><li><strong>Graph timeouts</strong> — timeout cells exist, values are positive integers, cells have <code>:timeout</code> edge</li><li><strong>Error groups</strong> — grouped cells exist, error handler exists, no cell in multiple groups</li><li><strong>Resilience validation</strong> — policy keys valid, referenced cells exist, timeout-ms positive</li><li><strong>Join validation</strong> — member cells exist, no name collisions, members have no edges, output keys disjoint (or <code>:merge-fn</code> provided)</li></ul><h2 id="edge&#95;targets">Edge Targets</h2><table><thead><tr><th>Target</th><th>Meaning</th></tr></thead><tbody><tr><td><code>:cell-name</code></td><td>Next cell in workflow</td></tr><tr><td><code>:join-name</code></td><td>Enter a join node</td></tr><tr><td><code>:end</code></td><td>Workflow completes successfully</td></tr><tr><td><code>:error</code></td><td>Workflow terminates with error</td></tr><tr><td><code>:halt</code></td><td>Workflow halts</td></tr><tr><td><code>:&#95;exit/name</code></td><td>Fragment exit reference (resolved during expansion)</td></tr></tbody></table><h2 id="ring&#95;middleware">Ring Middleware</h2><pre><code class="clojure">&#40;require '&#91;mycelium.middleware :as mw&#93;&#41;
+
+;; Create a Ring handler from a pre-compiled workflow
+&#40;mw/workflow-handler compiled {:resources {:db db}}&#41;
+
+;; With custom input/output transforms
+&#40;mw/workflow-handler compiled
+  {:resources {:db db}
+   :input-fn  &#40;fn &#91;req&#93; {:http-request req}&#41;   ;; default
+   :output-fn mw/html-response}&#41;               ;; default
+
+;; :resources can be a function for per-request construction
+&#40;mw/workflow-handler compiled
+  {:resources &#40;fn &#91;req&#93; {:db db :request req}&#41;}&#41;
+
+;; Standard HTML response helper
+&#40;mw/html-response result&#41;  ;; =&gt; {:status 200 :body &#40;:html result&#41; ...}
+</code></pre><h2 id="dev&#95;tools">Dev Tools</h2><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+;; Test a cell in isolation
+&#40;dev/test-cell :cell/id {:input {:key &quot;val&quot;} :resources {:db db}}&#41;
+;; =&gt; {:pass? true, :output {...}, :errors &#91;&#93;, :duration-ms 0.42}
+
+;; Test with dispatch verification
+&#40;dev/test-cell :cell/id
+  {:input      {:key &quot;val&quot;}
+   :dispatches &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:result d&#41;&#41;&#93;
+                &#91;:failure &#40;fn &#91;d&#93; &#40;:error d&#41;&#41;&#93;&#93;
+   :expected-dispatch :success}&#41;
+;; =&gt; {:pass? true, :matched-dispatch :success, :output {...}, ...}
+
+;; Test multiple transitions
+&#40;dev/test-transitions :cell/id
+  {:found     {:input {:id &quot;alice&quot;} :resources {:db db}
+               :dispatches &#91;&#91;:found &#40;fn &#91;d&#93; &#40;:profile d&#41;&#41;&#93;
+                            &#91;:not-found &#40;fn &#91;d&#93; &#40;:error d&#41;&#41;&#93;&#93;}
+   :not-found {:input {:id &quot;nobody&quot;} :resources {:db db}
+               :dispatches &#91;&#91;:found &#40;fn &#91;d&#93; &#40;:profile d&#41;&#41;&#93;
+                            &#91;:not-found &#40;fn &#91;d&#93; &#40;:error d&#41;&#41;&#93;&#93;}}&#41;
+
+;; Enumerate all paths from :start to terminal states
+&#40;dev/enumerate-paths workflow-def&#41;
+
+;; Generate DOT graph for visualization
+&#40;dev/workflow-&gt;dot workflow-def&#41;
+
+;; Check cell implementation status
+&#40;dev/workflow-status manifest&#41;
+;; =&gt; {:total 4, :passing 2, :failing 1, :pending 1, :cells &#91;...&#93;}
+
+;; Static analysis — reachability, unreachable states, cycles
+&#40;dev/analyze-workflow workflow-def&#41;
+;; =&gt; {:reachable #{:start :step2} :unreachable #{} :no-path-to-end #{} :cycles &#91;&#93;}
+
+;; Infer accumulated schema at each cell
+&#40;dev/infer-workflow-schema workflow-def&#41;
+;; =&gt; {:start  {:available-before #{:x}, :adds #{:result}, :available-after #{:x :result}}
+;;     :step2  {:available-before #{:x :result}, :adds #{:total}, ...}}
+</code></pre><p><code>analyze-workflow</code> and <code>infer-workflow-schema</code> are also available as <code>myc/analyze-workflow</code> and <code>myc/infer-workflow-schema</code>.</p><h2 id="agent&#95;orchestration">Agent Orchestration</h2><pre><code class="clojure">&#40;require '&#91;mycelium.orchestrate :as orch&#93;&#41;
+
+;; Generate briefs for all cells &#40;for parallel agent assignment&#41;
+&#40;orch/cell-briefs manifest&#41;
+;; =&gt; {:start {:id :auth/parse, :prompt &quot;## Cell: ...&quot;, ...}, ...}
+
+;; Generate a targeted brief after a cell implementation fails
+&#40;orch/reassignment-brief manifest :validate
+  {:error &quot;Output missing key :session-valid&quot;
+   :input {:user-id &quot;alice&quot; :auth-token &quot;tok&#95;abc&quot;}
+   :output {:session-valid nil}}&#41;
+
+;; Build plan — which cells can be implemented in parallel
+&#40;orch/plan manifest&#41;
+;; =&gt; {:scaffold &#91;:start :validate ...&#93;, :parallel &#91;&#91;...&#93;&#93;, :sequential &#91;&#93;}
+
+;; Progress report
+&#40;println &#40;orch/progress manifest&#41;&#41;
+
+;; Region brief — scoped context for a subgraph cluster
+&#40;orch/region-brief manifest :auth&#41;
+;; =&gt; {:cells &#91;{:name :start, :id :auth/parse, :schema {...}}, ...&#93;
+;;     :internal-edges {:start {:ok :validate-session}}
+;;     :entry-points &#91;:start&#93;
+;;     :exit-points &#91;{:cell :validate-session, :transitions {:authorized :fetch-profile}}&#93;
+;;     :prompt &quot;## Region: auth\n...&quot;}
+</code></pre><h3 id="regions">Regions</h3><p>Group cells into named regions in the manifest for LLM context scoping:</p><pre><code class="clojure">{:cells {:start :auth/parse, :validate :auth/validate, :fetch :user/fetch, :render :ui/render}
+ :regions {:auth       &#91;:start :validate&#93;
+           :data-fetch &#91;:fetch&#93;}}
+</code></pre><ul><li>Region cells must exist in <code>:cells</code></li><li>No cell may appear in multiple regions</li><li><code>region-brief</code> returns cell schemas, internal edges, entry/exit points, and a prompt</li><li>Exit point <code>:transitions</code> is always a map — unconditional edges use <code>{:unconditional :target}</code></li><li>Regions are purely informational — no runtime behavior change</li></ul><h2 id="workflow&#95;trace">Workflow Trace</h2><p>Every run produces <code>:mycelium/trace</code> — a vector of step-by-step execution records:</p><pre><code class="clojure">;; Each trace entry:
+{:cell        :fetch-user       ;; workflow cell name
+ :cell-id     :user/fetch       ;; registry cell ID
+ :transition  :success          ;; dispatch label taken &#40;nil for unconditional&#41;
+ :data        {...}             ;; data snapshot after handler ran
+ :duration-ms 12.4              ;; execution time
+ :error       {...}             ;; schema error details &#40;only on validation failure&#41;
+ :join-traces &#91;{...}&#93;}          ;; per-member timing &#40;only for join nodes&#41;
+</code></pre><h3 id="asserting&#95;on&#95;traces">Asserting on Traces</h3><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow wf {} {:x 5}&#41;
+      trace  &#40;:mycelium/trace result&#41;&#93;
+  &#40;is &#40;= &#91;:start :add&#93; &#40;mapv :cell trace&#41;&#41;&#41;
+  &#40;is &#40;= &#91;:done :done&#93; &#40;mapv :transition trace&#41;&#41;&#41;
+  &#40;is &#40;= 20 &#40;get-in &#40;last trace&#41; &#91;:data :result&#93;&#41;&#41;&#41;&#41;
+</code></pre><h2 id="system&#95;queries">System Queries</h2><pre><code class="clojure">&#40;require '&#91;mycelium.system :as sys&#93;&#41;
+
+&#40;sys/cell-usage system :cell/id&#41;        ;; =&gt; &#91;&quot;/route1&quot; &quot;/route2&quot;&#93;
+&#40;sys/route-cells system &quot;/route&quot;&#41;       ;; =&gt; #{:cell/a :cell/b}
+&#40;sys/route-resources system &quot;/route&quot;&#41;   ;; =&gt; #{:db}
+&#40;sys/schema-conflicts system&#41;           ;; =&gt; &#91;{:cell-id ... :routes ...}&#93;
+&#40;sys/system-&gt;dot system&#41;                ;; =&gt; DOT graph string
+</code></pre><h2 id="halt&#95;&&#95;resume&#95;(human-in-the-loop)">Halt & Resume (Human-in-the-Loop)</h2><p>A cell can pause the workflow by returning <code>:mycelium/halt</code> in its data. The workflow halts after that cell, preserving all accumulated data and trace. A human (or external process) can later resume the workflow from where it stopped.</p><h3 id="halting">Halting</h3><pre><code class="clojure">;; Cell signals halt by assoc'ing :mycelium/halt into data
+&#40;defmethod cell/cell-spec :review/check &#91;&#95;&#93;
+  {:id      :review/check
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;assoc data :mycelium/halt {:reason :needs-approval
+                                          :item   &#40;:item-id data&#41;}&#41;&#41;
+   :schema  {:input &#91;:map &#91;:item-id :string&#93;&#93; :output &#91;:map&#93;}}&#41;
+</code></pre><p><code>:mycelium/halt</code> can be <code>true</code> or a map with context for the human reviewer.</p><h3 id="resuming">Resuming</h3><pre><code class="clojure">&#40;let &#91;compiled &#40;myc/pre-compile workflow-def&#41;
+      halted   &#40;myc/run-compiled compiled resources {:item-id &quot;X&quot;}&#41;
+      ;; halted contains :mycelium/halt and :mycelium/resume
+      ;; Inspect halted, get human input, then resume:
+      result   &#40;myc/resume-compiled compiled resources halted {:approved true}&#41;&#93;
+  ;; result has data from before + after halt, :mycelium/halt cleared
+  &#40;:approved result&#41;&#41; ;; =&gt; true
+</code></pre><p><code>resume-compiled</code> takes an optional merge-data map (4th arg) that is merged into the data before resuming — useful for injecting human-provided input.</p><h3 id="key&#95;behaviors">Key Behaviors</h3><ul><li><strong>Data accumulates</strong> — all keys from before the halt are available after resume</li><li><strong>Trace is continuous</strong> — <code>:mycelium/trace</code> spans the full execution (before + after halt)</li><li><strong>Multiple halts</strong> — a workflow can halt and resume multiple times</li><li><strong>Branching</strong> — if a halting cell dispatches to a branch, resume continues on the correct branch</li><li><strong>Halt trace entry</strong> — the trace entry for the halting cell has <code>:halted true</code></li><li><strong>Resume validation</strong> — calling <code>resume-compiled</code> on a non-halted result throws an exception</li></ul><h3 id="persistent&#95;store">Persistent Store</h3><p>For workflows that halt across process restarts or sessions, use the <code>WorkflowStore</code> protocol to persist and retrieve halted state:</p><pre><code class="clojure">&#40;require '&#91;mycelium.store :as store&#93;&#41;
+
+;; In-memory store &#40;dev/testing&#41;
+&#40;def s &#40;store/memory-store&#41;&#41;
+
+;; Run — auto-persists on halt, returns {:mycelium/session-id id, :mycelium/halt context}
+&#40;def halted &#40;store/run-with-store compiled resources initial-data s&#41;&#41;
+
+;; Resume by session ID — loads from store, resumes, cleans up on completion
+&#40;def result &#40;store/resume-with-store compiled resources &#40;:mycelium/session-id halted&#41; s&#41;&#41;
+
+;; Resume with human input
+&#40;store/resume-with-store compiled resources session-id s {:approved true}&#41;
+</code></pre><p>Implement the protocol for your persistence backend (DB, Redis, etc.):</p><pre><code class="clojure">&#40;defrecord MyStore &#91;conn&#93;
+  store/WorkflowStore
+  &#40;save-workflow! &#91;&#95; session-id data&#93; ...&#41;
+  &#40;load-workflow &#91;&#95; session-id&#93; ...&#41;
+  &#40;delete-workflow! &#91;&#95; session-id&#93; ...&#41;
+  &#40;list-workflows &#91;&#95;&#93; ...&#41;&#41;
+</code></pre><ul><li>On halt: state persisted, <code>:mycelium/session-id</code> returned (<code>:mycelium/resume</code> hidden from caller)</li><li>On resume completion: state deleted from store automatically</li><li>On re-halt: store updated with new state, same session ID reused</li><li>Custom session IDs: <code>&#40;store/run-with-store compiled res data s {:session-id &quot;my-id&quot;}&#41;</code></li></ul><h2 id="workflow&#95;result&#95;keys">Workflow Result Keys</h2><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><code>:mycelium/trace</code></td><td>Vector of execution trace entries (see Workflow Trace)</td></tr><tr><td><code>:mycelium/input-error</code></td><td>Input schema validation failure (workflow didn't run)</td></tr><tr><td><code>:mycelium/schema-error</code></td><td>Runtime schema violation details</td></tr><tr><td><code>:mycelium/join-error</code></td><td>Join node error details</td></tr><tr><td><code>:mycelium/timeout</code></td><td><code>true</code> when a cell exceeded its graph-level timeout</td></tr><tr><td><code>:mycelium/error</code></td><td>Error group error details (<code>{:cell :name, :message &quot;...&quot;}</code>)</td></tr><tr><td><code>:mycelium/resilience-error</code></td><td>Resilience policy trigger details (<code>:type</code>, <code>:cell</code>, <code>:message</code>)</td></tr><tr><td><code>:mycelium/child-trace</code></td><td>Nested workflow trace (composed cells)</td></tr><tr><td><code>:mycelium/halt</code></td><td>Halt context (true or map) — present when workflow is halted</td></tr><tr><td><code>:mycelium/resume</code></td><td>Resume state token — present when workflow is halted</td></tr><tr><td><code>:mycelium/session-id</code></td><td>Store session ID — present when using <code>run-with-store</code>/<code>resume-with-store</code> on halt</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

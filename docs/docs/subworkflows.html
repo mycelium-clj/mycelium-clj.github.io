@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Subworkflows</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#subworkflows_(nested_composition)">Subworkflows (Nested Composition)</a></li><li><a href="#creating_a_subworkflow_cell">Creating a Subworkflow Cell</a></li><li><a href="#using_in_a_parent_workflow">Using in a Parent Workflow</a></li><li><a href="#default_dispatches">Default Dispatches</a></li><li><a href="#how_it_works">How It Works</a></li><li><a href="#accessing_the_child_trace">Accessing the Child Trace</a></li><li><a href="#error_handling">Error Handling</a></li><li><a href="#"></a></li><li><a href="#fragments_vs_subworkflows">Fragments vs Subworkflows</a></li><li><a href="#fragments:_compile-time_inlining">Fragments: Compile-Time Inlining</a></li><li><a href="#subworkflows:_runtime_nesting">Subworkflows: Runtime Nesting</a></li><li><a href="#comparison">Comparison</a></li><li><a href="#when_to_use_each">When to Use Each</a></li></ol>
+      
+      <div id="content">
+        <h1 id="subworkflows&#95;(nested&#95;composition)">Subworkflows (Nested Composition)</h1><p>Subworkflows let you wrap an entire workflow as a single cell, creating hierarchical composition where a parent workflow delegates to a child workflow as one opaque step.</p><h2 id="creating&#95;a&#95;subworkflow&#95;cell">Creating a Subworkflow Cell</h2><pre><code class="clojure">&#40;require '&#91;mycelium.compose :as compose&#93;&#41;
+
+;; Register a workflow as a cell
+&#40;compose/register-workflow-cell!
+  :payment/process-order
+  {:cells      {:start :payment/validate-card
+                :charge :payment/charge-card
+                :receipt :payment/generate-receipt}
+   :edges      {:start  {:valid :charge, :invalid :&#95;error}
+                :charge {:success :receipt, :failure :&#95;error}
+                :receipt {:done :end}}
+   :dispatches {:start   &#91;&#91;:valid   &#40;fn &#91;d&#93; &#40;:card-valid d&#41;&#41;&#93;
+                          &#91;:invalid &#40;fn &#91;d&#93; &#40;not &#40;:card-valid d&#41;&#41;&#41;&#93;&#93;
+                :charge  &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:charge-id d&#41;&#41;&#93;
+                          &#91;:failure &#40;fn &#91;d&#93; &#40;:error-type d&#41;&#41;&#93;&#93;
+                :receipt &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;}}
+  {:input  &#91;:map &#91;:card-number :string&#93; &#91;:amount :int&#93;&#93;
+   :output &#91;:map &#91;:receipt-id :string&#93;&#93;}&#41;
+</code></pre><p>Or create the spec without registering:</p><pre><code class="clojure">&#40;def payment-cell-spec
+  &#40;compose/workflow-&gt;cell
+    :payment/process-order
+    workflow-def
+    {:input  &#91;:map &#91;:card-number :string&#93; &#91;:amount :int&#93;&#93;
+     :output &#91;:map &#91;:receipt-id :string&#93;&#93;}&#41;&#41;
+</code></pre><h2 id="using&#95;in&#95;a&#95;parent&#95;workflow">Using in a Parent Workflow</h2><p>The subworkflow cell is used like any other cell:</p><pre><code class="clojure">&#40;myc/run-workflow
+  {:cells      {:start   :order/prepare
+                :payment :payment/process-order   ;; the subworkflow cell
+                :confirm :order/send-confirmation}
+   :edges      {:start   {:ready :payment}
+                :payment {:success :confirm, :failure :end}
+                :confirm {:done :end}}
+   :dispatches {:start   &#91;&#91;:ready &#40;constantly true&#41;&#93;&#93;
+                :payment &#91;&#91;:success &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/error d&#41;&#41;&#41;&#93;
+                          &#91;:failure &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/error d&#41;&#41;&#41;&#93;&#93;
+                :confirm &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;}}
+  {:db db}
+  {:order-id &quot;ord-123&quot; :card-number &quot;4111...&quot; :amount 5000}&#41;
+</code></pre><h2 id="default&#95;dispatches">Default Dispatches</h2><p>Subworkflow cells provide default dispatches automatically:</p><pre><code class="clojure">&#91;&#91;:success &#40;fn &#91;data&#93; &#40;not &#40;:mycelium/error data&#41;&#41;&#41;&#93;
+ &#91;:failure &#40;fn &#91;data&#93; &#40;some? &#40;:mycelium/error data&#41;&#41;&#41;&#93;&#93;
+</code></pre><p>If the child workflow completes normally, <code>:success</code> matches. If it hits an error state or throws, <code>:mycelium/error</code> is set on the data and <code>:failure</code> matches.</p><p>You don't need to declare these dispatches explicitly in the parent workflow's <code>:dispatches</code> map -- they are injected as <code>:default-dispatches</code> on the cell spec.</p><h2 id="how&#95;it&#95;works">How It Works</h2><p>At registration time:</p><ol><li>The child workflow is compiled once into a Maestro FSM</li><li>A handler function is created that runs the child FSM synchronously</li><li>Custom <code>on-error</code> and <code>on-end</code> handlers extract the child's trace into <code>:mycelium/child-trace</code></li><li>The output schema is set to open <code>:map</code> (not the declared happy-path schema) because failure paths produce different keys</li></ol><p>At runtime:</p><ol><li>The parent FSM reaches the subworkflow cell</li><li>The cell handler calls <code>fsm/run</code> with the pre-compiled child FSM</li><li>The child runs to completion (all its cells, schema validation, tracing)</li><li>The result data flows back into the parent's data map</li><li>The parent dispatches on <code>:success</code> or <code>:failure</code></li></ol><h2 id="accessing&#95;the&#95;child&#95;trace">Accessing the Child Trace</h2><p>The child workflow's execution trace is available as <code>:mycelium/child-trace</code> on the result data:</p><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow parent-wf {} initial-data&#41;&#93;
+  ;; Parent trace shows one entry for the subworkflow cell
+  &#40;:mycelium/trace result&#41;
+  ;; =&gt; &#91;{:cell :start, ...}
+  ;;     {:cell :payment, :cell-id :payment/process-order, ...}
+  ;;     {:cell :confirm, ...}&#93;
+
+  ;; Child trace shows the internal execution
+  &#40;:mycelium/child-trace result&#41;
+  ;; =&gt; &#91;{:cell :start, :cell-id :payment/validate-card, ...}
+  ;;     {:cell :charge, :cell-id :payment/charge-card, ...}
+  ;;     {:cell :receipt, :cell-id :payment/generate-receipt, ...}&#93;
+  &#41;
+</code></pre><h2 id="error&#95;handling">Error Handling</h2><p>When the child workflow fails:</p><ul><li>Schema validation errors inside the child set <code>:mycelium/error</code> with the schema error details</li><li>Exceptions thrown by child cell handlers are caught and set <code>:mycelium/error</code> with the exception message</li><li>The parent can dispatch on <code>:failure</code> and route to its own error handling cell<pre><code class="clojure">;; In the parent, check for subworkflow errors
+:dispatches {:payment &#91;&#91;:success &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/error d&#41;&#41;&#41;&#93;
+                       &#91;:failure &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/error d&#41;&#41;&#41;&#93;&#93;}
+</code></pre><h2></h2></li></ul><h1 id="fragments&#95;vs&#95;subworkflows">Fragments vs Subworkflows</h1><p>Fragments and subworkflows both enable reuse, but they work at different levels and serve different purposes.</p><h2 id="fragments:&#95;compile-time&#95;inlining">Fragments: Compile-Time Inlining</h2><p>Fragments are expanded at manifest load time. The fragment's cells, edges, and dispatches are merged directly into the host manifest. After expansion, there is no fragment boundary at runtime &ndash; it's as if you wrote all those cells in the host manifest by hand.</p><pre><code>Host manifest + fragment  --&gt;  expand-all-fragments  --&gt;  flat manifest with all cells
+</code></pre><p>See <a href='workflow-fragments.md'>workflow-fragments.md</a> for the full fragment API.</p><h2 id="subworkflows:&#95;runtime&#95;nesting">Subworkflows: Runtime Nesting</h2><p><code>workflow-&gt;cell</code> wraps an entire workflow as a single opaque cell. The parent workflow sees it as one cell with <code>:success</code>/<code>:failure</code> dispatches. The child workflow runs to completion inside the cell's handler.</p><pre><code>Parent workflow  --&gt;  &#91;subworkflow-cell&#93;  --&gt;  next cell
+                            |
+                      child FSM runs internally
+</code></pre><h2 id="comparison">Comparison</h2><table><thead><tr><th></th><th>Fragments</th><th>Subworkflows</th></tr></thead><tbody><tr><td><strong>When</strong></td><td>Load time (manifest expansion)</td><td>Runtime (cell handler)</td></tr><tr><td><strong>Boundary</strong></td><td>Dissolved &ndash; no boundary at runtime</td><td>Preserved &ndash; child is opaque to parent</td></tr><tr><td><strong>Schema chain</strong></td><td>Validated as one flat workflow across fragment/host</td><td>Validated separately: parent and child each validate their own chain</td></tr><tr><td><strong>Trace</strong></td><td>Each fragment cell appears individually in the trace</td><td>One trace entry with nested <code>:mycelium/child-trace</code></td></tr><tr><td><strong>Error routing</strong></td><td>Fragment cells use <code>:&#95;exit/failure</code> to route to host error cell</td><td>Child errors surface as <code>:mycelium/error</code>, parent dispatches on <code>:failure</code></td></tr><tr><td><strong>Output schema</strong></td><td>Each cell has its own precise schema</td><td>Subworkflow cell uses open <code>:map</code> (failure path won't match happy-path schema)</td></tr><tr><td><strong>Interceptors</strong></td><td>Host workflow interceptors apply to fragment cells (they're inlined)</td><td>Parent interceptors do NOT apply to child cells (separate FSM)</td></tr><tr><td><strong>Reuse mechanism</strong></td><td>EDN file on classpath or inline data</td><td>Registered cell in the cell registry</td></tr></tbody></table><h2 id="when&#95;to&#95;use&#95;each">When to Use Each</h2><p><strong>Use fragments when:</strong></p><ul><li>You're eliminating copy-paste of the same cells/edges/dispatches across manifests (e.g., an auth flow shared by 6+ routes)</li><li>You want the host workflow's interceptors to apply to the reused cells</li><li>You want full schema chain validation across the boundary</li><li>You want each cell to appear individually in the trace for debugging</li></ul><p><strong>Use subworkflows when:</strong></p><ul><li>You want to encapsulate a workflow behind a clean interface (input schema in, result out)</li><li>The child workflow is a self-contained process that shouldn't leak implementation details to the parent</li><li>You want independent schema validation (child validates internally, parent only sees the interface)</li><li>You're composing workflows from different teams or modules where the internals should be hidden</li></ul><p><strong>Rule of thumb:</strong> If you'd copy-paste the cells into every manifest that needs them, use a fragment. If you'd call it as a function and only care about the inputs and outputs, use a subworkflow.</p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

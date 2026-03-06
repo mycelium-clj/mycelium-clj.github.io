@@ -4,5 +4,4 @@
 *.iml
 */.DS_Store
 target/
-static/
 *.pxd

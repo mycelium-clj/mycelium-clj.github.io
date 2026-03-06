@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Manifests</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#working_with_manifests">Working with Manifests</a></li><li><a href="#manifest_structure">Manifest Structure</a></li><li><a href="#cell_definitions_in_manifests">Cell Definitions in Manifests</a></li><li><a href="#schema_inheritance">Schema Inheritance</a></li><li><a href="#the_&lt;code&gt;:on-error&lt;/code&gt;_declaration">The </a></li><li><a href="#loading_manifests">Loading Manifests</a></li><li><a href="#converting_to_workflow">Converting to Workflow</a></li><li><a href="#input_schema_validation">Input Schema Validation</a></li><li><a href="#dispatch_predicates_in_edn">Dispatch Predicates in EDN</a></li><li><a href="#pipeline_shorthand">Pipeline Shorthand</a></li><li><a href="#optional_dispatches">Optional Dispatches</a></li><li><a href="#ring_middleware">Ring Middleware</a></li><li><a href="#cell_briefs_(for_llm_agents)">Cell Briefs (for LLM Agents)</a></li><li><a href="#manifest_validation_rules">Manifest Validation Rules</a></li><li><a href="#example:_complete_manifest">Example: Complete Manifest</a></li><li><a href="#typical_workflow_loader_pattern">Typical Workflow Loader Pattern</a></li></ol>
+      
+      <div id="content">
+        <h1 id="working&#95;with&#95;manifests">Working with Manifests</h1><p>Manifests are EDN files that define complete workflows as pure data. They serve as the single source of truth for workflow structure, cell schemas, and routing logic.</p><h2 id="manifest&#95;structure">Manifest Structure</h2><pre><code class="clojure">{:id            :workflow-name              ;; required
+ :doc           &quot;Description&quot;               ;; optional
+ :input-schema  &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93; ;; optional, validates workflow input
+ :pipeline      &#91;:start :step2 :step3&#93;      ;; optional, shorthand for linear flows
+ :fragments     {...}                       ;; optional, see workflow-fragments.md
+ :cells         {...}                       ;; required
+ :edges         {...}                       ;; required &#40;unless :pipeline used&#41;
+ :dispatches    {...}                       ;; optional, required only for conditional edges
+ :joins         {...}                       ;; optional
+ :interceptors  &#91;...&#93;                       ;; optional
+}
+</code></pre><h2 id="cell&#95;definitions&#95;in&#95;manifests">Cell Definitions in Manifests</h2><p>Each cell in the <code>:cells</code> map must have:</p><pre><code class="clojure">{:cell-name
+ {:id       :namespace/cell-id      ;; cell registry ID
+  :doc      &quot;What this cell does&quot;   ;; optional
+  :schema   {:input  &#91;:map ...&#93;     ;; Malli input schema
+             :output &#91;:map ...&#93;     ;; or {:transition-label &#91;:map ...&#93;, ...}
+            }                       ;; or :inherit — see below
+  :on-error :error-cell             ;; required: target cell keyword or nil
+  :requires &#91;:db&#93;}}                 ;; optional: resource dependencies
+</code></pre><h3 id="schema&#95;inheritance">Schema Inheritance</h3><p>If a cell is already registered with a schema in the cell registry, you can use <code>:schema :inherit</code> instead of duplicating it:</p><pre><code class="clojure">:start
+{:id       :request/parse-todo
+ :schema   :inherit           ;; pulls schema from cell registry
+ :on-error nil}
+</code></pre><p>This looks up the cell's <code>:schema</code> from the registry via <code>cell/get-cell</code> and resolves it before validation. If the cell isn't registered or has no schema, validation throws with a clear error.</p><p>This is useful when cells define their own schemas via <code>defmethod cell-spec</code> and you don't want to repeat them in the manifest.</p><h3 id="the&#95;<code>:on-error</code>&#95;declaration">The <code>:on-error</code> Declaration</h3><p>Every cell must declare <code>:on-error</code>:</p><ul><li><code>:on-error :render-error</code> — declares that errors route to <code>:render-error</code></li><li><code>:on-error nil</code> — explicitly declares "no error handling needed"</li></ul><p>The target must be a valid cell name in the manifest. This is a <strong>declaration</strong> that the manifest author has considered error handling — it does not auto-generate edges.</p><h2 id="loading&#95;manifests">Loading Manifests</h2><pre><code class="clojure">&#40;require '&#91;mycelium.manifest :as manifest&#93;&#41;
+
+;; Load from file path — expands fragments, validates
+&#40;def m &#40;manifest/load-manifest &quot;path/to/workflow.edn&quot;&#41;&#41;
+
+;; Validate an in-memory manifest
+&#40;manifest/validate-manifest manifest-map&#41;
+
+;; With options
+&#40;manifest/validate-manifest manifest-map {:strict? false}&#41; ;; allow missing :on-error
+</code></pre><p><code>load-manifest</code> automatically:</p><ol><li>Parses the EDN file</li><li>Expands <code>:fragments</code> if present</li><li>Validates the manifest structure</li></ol><h2 id="converting&#95;to&#95;workflow">Converting to Workflow</h2><pre><code class="clojure">&#40;def workflow-def &#40;manifest/manifest-&gt;workflow m&#41;&#41;
+</code></pre><p>This:</p><ul><li>Registers stub handlers for cells not yet implemented</li><li>Applies manifest metadata (schema, requires) to already-registered cells</li><li>Returns a workflow definition map suitable for <code>pre-compile</code> or <code>run-workflow</code></li></ul><p>For production use, pass the result to <code>myc/pre-compile</code> to avoid recompilation per request:<pre><code class="clojure">&#40;def compiled &#40;myc/pre-compile workflow-def opts&#41;&#41;
+&#40;myc/run-compiled compiled resources initial-data&#41;
+</code></pre></p><h2 id="input&#95;schema&#95;validation">Input Schema Validation</h2><p>Add <code>:input-schema</code> to validate data before any cell runs:</p><pre><code class="clojure">{:id :dashboard
+ :input-schema &#91;:map &#91;:http-request &#91;:map &#91;:cookies map?&#93;&#93;&#93;&#93;
+ :cells {...}}
+</code></pre><p>When <code>run-workflow</code> receives data that doesn't match:<pre><code class="clojure">{:mycelium/input-error {:schema &#91;:map &#91;:http-request &#91;:map &#91;:cookies map?&#93;&#93;&#93;&#93;
+                        :errors &#91;{:path &#91;:http-request :cookies&#93;, ...}&#93;
+                        :data   {:http-request {:headers {}}}}}
+</code></pre></p><h2 id="dispatch&#95;predicates&#95;in&#95;edn">Dispatch Predicates in EDN</h2><p>Predicates are <code>&#40;fn ...&#41;</code> forms evaluated by Maestro's SCI (Small Clojure Interpreter):</p><pre><code class="clojure">:dispatches
+{:start &#91;&#91;:success &#40;fn &#91;data&#93; &#40;:auth-token data&#41;&#41;&#93;
+         &#91;:failure &#40;fn &#91;data&#93; &#40;:error-type data&#41;&#41;&#93;&#93;}
+</code></pre><p>Available in predicates: core Clojure functions. No <code>require</code> or namespace access.</p><h2 id="pipeline&#95;shorthand">Pipeline Shorthand</h2><p>For simple linear workflows with no branching, use <code>:pipeline</code> instead of <code>:edges</code> and <code>:dispatches</code>:</p><pre><code class="clojure">{:id :todo-add
+ :pipeline &#91;:start :create :fetch-list :render&#93;
+ :cells {:start      {:id :request/parse-todo  :schema {...} :on-error nil}
+         :create     {:id :todo/create         :schema {...} :on-error nil}
+         :fetch-list {:id :todo/list           :schema {...} :on-error nil}
+         :render     {:id :ui/render-list      :schema {...} :on-error nil}}}
+</code></pre><p>This expands to:</p><ul><li><code>:edges</code> — each cell flows to the next: <code>{:start :create, :create :fetch-list, :fetch-list :render, :render :end}</code></li><li><code>:dispatches</code> — empty <code>{}</code></li></ul><p><strong>Constraints</strong>: <code>:pipeline</code> is mutually exclusive with <code>:edges</code>, <code>:dispatches</code>, <code>:fragments</code>, and <code>:joins</code>. Use it only for pure linear workflows.</p><h2 id="optional&#95;dispatches">Optional Dispatches</h2><p><code>:dispatches</code> is only required when you have conditional (map) edges. If all edges are unconditional keywords (e.g., <code>:start :next-cell</code>), you can omit <code>:dispatches</code> entirely:</p><pre><code class="clojure">{:id :simple
+ :cells {:start {:id :my/cell :schema {...} :on-error nil}}
+ :edges {:start :end}}
+;; no :dispatches needed
+</code></pre><h2 id="ring&#95;middleware">Ring Middleware</h2><p>Mycelium provides <code>mycelium.middleware</code> to bridge Ring HTTP requests to workflow execution:</p><pre><code class="clojure">&#40;require '&#91;mycelium.middleware :as mw&#93;&#41;
+
+;; Create a Ring handler from a compiled workflow
+&#40;def handler
+  &#40;mw/workflow-handler compiled-workflow
+    {:resources {:db db}           ;; or &#40;fn &#91;request&#93; {:db ...}&#41;
+     :input-fn  &#40;fn &#91;req&#93; {:http-request req}&#41;  ;; default
+     :output-fn mw/html-response}&#41;&#41;             ;; default
+
+;; html-response extracts :html from result, returns {:status 200 :body html}
+&#40;mw/html-response {:html &quot;&lt;h1&gt;Hi&lt;/h1&gt;&quot;}&#41;
+;; =&gt; {:status 200, :headers {&quot;Content-Type&quot; &quot;text/html; charset=utf-8&quot;}, :body &quot;&lt;h1&gt;Hi&lt;/h1&gt;&quot;}
+</code></pre><p>Common pattern with Reitit routes:</p><pre><code class="clojure">&#40;defn- wf-handler &#91;compiled db&#93;
+  &#40;mw/workflow-handler compiled {:resources {:db db}}&#41;&#41;
+
+&#40;defn routes &#91;db&#93;
+  &#91;&#91;&quot;/&quot;     {:get  {:handler &#40;wf-handler compiled-page db&#41;}}&#93;
+   &#91;&quot;/add&quot;  {:post {:handler &#40;wf-handler compiled-add db&#41;}}&#93;&#93;&#41;
+</code></pre><p><code>workflow-handler</code> also handles input validation errors — if the workflow returns <code>:mycelium/input-error</code>, a 400 response is returned automatically.</p><h2 id="cell&#95;briefs&#95;(for&#95;llm&#95;agents)">Cell Briefs (for LLM Agents)</h2><p>Generate a self-contained prompt for implementing a single cell:</p><pre><code class="clojure">&#40;manifest/cell-brief m :validate-session&#41;
+;; =&gt; {:id :auth/validate-session
+;;     :doc &quot;Check credentials against the session store&quot;
+;;     :schema {:input &#91;...&#93;, :output {...}}
+;;     :requires &#91;:db&#93;
+;;     :examples {:input {...}, :output {...}}
+;;     :prompt &quot;## Cell: :auth/validate-session\n...&quot;}
+</code></pre><p>The <code>:prompt</code> string contains everything an LLM needs to implement the cell: schema, examples, dispatch rules, and coding constraints.</p><h2 id="manifest&#95;validation&#95;rules">Manifest Validation Rules</h2><p><code>validate-manifest</code> checks:</p><ul><li><code>:id</code> is present</li><li><code>:cells</code> is present and non-empty</li><li><code>:edges</code> is present (or <code>:pipeline</code> which expands to <code>:edges</code>)</li><li>Every cell has valid <code>:id</code>, <code>:schema</code> (with <code>:input</code> and <code>:output</code>, or <code>:inherit</code>), and <code>:on-error</code></li><li><code>:schema :inherit</code> cells have a registered cell with a schema in the registry</li><li><code>:on-error</code> targets exist in <code>:cells</code></li><li>All edge targets point to valid cells, joins, or terminal states (<code>:end</code>, <code>:error</code>, <code>:halt</code>)</li><li>Every non-join-member cell has an edge entry</li><li>Dispatch coverage: every edge label has a predicate, every predicate has an edge</li><li>All cells are reachable from <code>:start</code></li><li><code>:input-schema</code> is well-formed Malli (if present)</li><li>Join members have no edge entries</li><li>Join names don't collide with cell names</li></ul><h2 id="example:&#95;complete&#95;manifest">Example: Complete Manifest</h2><pre><code class="clojure">{:id :user-profile
+ :doc &quot;Authenticate, fetch user by ID, render profile page&quot;
+ :input-schema &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;
+
+ :fragments
+ {:auth {:ref   &quot;fragments/cookie-auth.edn&quot;
+         :as    :start
+         :exits {:success :fetch-profile-by-id
+                 :failure :render-error}}}
+
+ :cells
+ {:fetch-profile-by-id
+  {:id       :user/fetch-profile-by-id
+   :schema   {:input  &#91;:map &#91;:http-request &#91;:map &#91;:path-params &#91;:map &#91;:id :string&#93;&#93;&#93;&#93;&#93;&#93;
+              :output {:found     &#91;:map &#91;:profile map?&#93;&#93;
+                       :not-found &#91;:map &#91;:error-type :keyword&#93;
+                                        &#91;:error-message :string&#93;&#93;}}
+   :on-error :render-error
+   :requires &#91;:db&#93;}
+
+  :render-profile
+  {:id       :ui/render-user-profile
+   :schema   {:input  &#91;:map &#91;:profile &#91;:map &#91;:id :string&#93; &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
+              :output &#91;:map &#91;:html :string&#93;&#93;}
+   :on-error :render-error
+   :requires &#91;&#93;}
+
+  :render-error
+  {:id       :ui/render-error
+   :schema   {:input  &#91;:map&#93;
+              :output &#91;:map &#91;:html :string&#93; &#91;:error-status :int&#93;&#93;}
+   :on-error nil
+   :requires &#91;&#93;}}
+
+ :edges
+ {:fetch-profile-by-id {:found :render-profile, :not-found :render-error}
+  :render-profile      {:done :end}
+  :render-error        {:done :end}}
+
+ :dispatches
+ {:fetch-profile-by-id &#91;&#91;:found     &#40;fn &#91;data&#93; &#40;:profile data&#41;&#41;&#93;
+                         &#91;:not-found &#40;fn &#91;data&#93; &#40;:error-type data&#41;&#41;&#93;&#93;
+  :render-profile      &#91;&#91;:done &#40;fn &#91;&#95;&#93; true&#41;&#93;&#93;
+  :render-error        &#91;&#91;:done &#40;fn &#91;&#95;&#93; true&#41;&#93;&#93;}}
+</code></pre><h2 id="typical&#95;workflow&#95;loader&#95;pattern">Typical Workflow Loader Pattern</h2><p>Use <code>pre-compile</code> at load time so requests pay zero compilation cost:</p><pre><code class="clojure">&#40;ns app.workflows.dashboard
+  &#40;:require &#91;mycelium.manifest :as manifest&#93;
+            &#91;mycelium.core :as myc&#93;
+            &#91;clojure.java.io :as io&#93;
+            &#91;app.middleware :as mw&#93;
+            &#91;app.cells.auth&#93;       ;; load cell registrations
+            &#91;app.cells.user&#93;
+            &#91;app.cells.ui&#93;&#41;&#41;
+
+&#40;def manifest-data
+  &#40;manifest/load-manifest
+   &#40;str &#40;io/resource &quot;workflows/dashboard.edn&quot;&#41;&#41;&#41;&#41;
+
+&#40;def compiled-workflow
+  &#40;myc/pre-compile
+   &#40;manifest/manifest-&gt;workflow manifest-data&#41;
+   mw/workflow-opts&#41;&#41;
+
+&#40;defn run-dashboard &#91;db request&#93;
+  &#40;myc/run-compiled
+   compiled-workflow
+   {:db db}
+   {:http-request {:query-params &#40;or &#40;:query-params request&#41; {}&#41;
+                   :cookies      &#40;or &#40;:cookies request&#41; {}&#41;}}&#41;&#41;
+</code></pre><p><code>pre-compile</code> performs workflow validation, FSM compilation, and Malli schema pre-compilation once. <code>run-compiled</code> only validates the input schema (if present) and runs the pre-built FSM.</p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

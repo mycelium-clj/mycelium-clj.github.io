@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Interceptors</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#workflow-level_interceptors">Workflow-Level Interceptors</a></li><li><a href="#defining_interceptors">Defining Interceptors</a></li><li><a href="#interceptor_fields">Interceptor Fields</a></li><li><a href="#scope_options">Scope Options</a></li><li><a href="#&lt;code&gt;:all&lt;/code&gt;_—_every_cell_in_the_workflow">{:tag :code, :attrs nil, :content [":all"]}</a></li><li><a href="#&lt;code&gt;{:id-match_&quot;pattern&quot;}&lt;/code&gt;_—_glob_pattern_on_cell_&lt;code&gt;:id&lt;/code&gt;">{:tag :code, :attrs nil, :content ["{:id-match \"pattern\"}"]}</a></li><li><a href="#&lt;code&gt;{:cells_[...]}&lt;/code&gt;_—_explicit_cell_name_list">{:tag :code, :attrs nil, :content ["{:cells [...]}"]}</a></li><li><a href="#execution_order">Execution Order</a></li><li><a href="#how_it_works">How It Works</a></li><li><a href="#interceptors_vs_maestro_fsm_interceptors">Interceptors vs Maestro FSM Interceptors</a></li><li><a href="#common_use_cases">Common Use Cases</a></li><li><a href="#injecting_navigation_context_for_ui_cells">Injecting navigation context for UI cells</a></li><li><a href="#request_timing">Request timing</a></li><li><a href="#error_context_enrichment">Error context enrichment</a></li></ol>
+      
+      <div id="content">
+        <h1 id="workflow-level&#95;interceptors">Workflow-Level Interceptors</h1><p>Interceptors let you inject cross-cutting concerns (logging, context enrichment, error wrapping) into cell handlers without modifying the handlers themselves.</p><h2 id="defining&#95;interceptors">Defining Interceptors</h2><p>Interceptors are declared in the workflow definition under <code>:interceptors</code>:</p><pre><code class="clojure">{:interceptors
+ &#91;{:id    :nav-context
+   :scope {:id-match &quot;ui/&#42;&quot;}
+   :pre   &#40;fn &#91;data&#93;
+            &#40;if &#40;:user-id data&#41;
+              &#40;assoc data :logged-in true :nav-items &#91;&quot;Dashboard&quot; &quot;Profile&quot; &quot;Logout&quot;&#93;&#41;
+              &#40;assoc data :logged-in false :nav-items &#91;&quot;Login&quot; &quot;Register&quot;&#93;&#41;&#41;&#41;}
+
+  {:id    :request-logging
+   :scope :all
+   :post  &#40;fn &#91;data&#93;
+            &#40;println &quot;Cell completed, keys:&quot; &#40;keys data&#41;&#41;
+            data&#41;}&#93;
+
+ :cells {...}
+ :edges {...}}
+</code></pre><h2 id="interceptor&#95;fields">Interceptor Fields</h2><table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><code>:id</code></td><td>yes</td><td>Keyword identifier for the interceptor</td></tr><tr><td><code>:scope</code></td><td>yes</td><td>Which cells this interceptor applies to (see Scope Options)</td></tr><tr><td><code>:pre</code></td><td>no</td><td><code>&#40;fn &#91;data&#93; -&gt; data&#41;</code> — transforms input data before handler</td></tr><tr><td><code>:post</code></td><td>no</td><td><code>&#40;fn &#91;data&#93; -&gt; data&#41;</code> — transforms output data after handler</td></tr></tbody></table><p>At least one of <code>:pre</code> or <code>:post</code> must be present.</p><h2 id="scope&#95;options">Scope Options</h2><h3 id="<code>:all</code>&#95;—&#95;every&#95;cell&#95;in&#95;the&#95;workflow"><code>:all</code> — every cell in the workflow</h3><pre><code class="clojure">{:scope :all}
+</code></pre><h3 id="<code>{:id-match&#95;&quot;pattern&quot;}</code>&#95;—&#95;glob&#95;pattern&#95;on&#95;cell&#95;<code>:id</code>"><code>{:id-match &quot;pattern&quot;}</code> — glob pattern on cell <code>:id</code></h3><pre><code class="clojure">{:scope {:id-match &quot;ui/&#42;&quot;}}       ;; matches :ui/render-dashboard, :ui/render-error
+{:scope {:id-match &quot;auth/&#42;&quot;}}     ;; matches :auth/validate-session
+{:scope {:id-match &quot;&#42;&quot;}}          ;; same as :all
+</code></pre><p>The pattern is matched against the full <code>namespace/name</code> of the cell's <code>:id</code>.</p><h3 id="<code>{:cells&#95;&#91;...&#93;}</code>&#95;—&#95;explicit&#95;cell&#95;name&#95;list"><code>{:cells &#91;...&#93;}</code> — explicit cell name list</h3><pre><code class="clojure">{:scope {:cells &#91;:render-dashboard :render-error&#93;}}
+</code></pre><p>Cell names are the workflow-level names (keys in <code>:cells</code> map), not the cell registry IDs.</p><h2 id="execution&#95;order">Execution Order</h2><p>Interceptors compose in declaration order:</p><pre><code class="clojure">:interceptors &#91;{:id :first, :scope :all, :pre pre-1, :post post-1}
+               {:id :second, :scope :all, :pre pre-2, :post post-2}&#93;
+</code></pre><p>Execution: <code>pre-1 → pre-2 → handler → post-1 → post-2</code></p><p>Both <code>:pre</code> and <code>:post</code> functions run in declaration order (first declared runs first).</p><h2 id="how&#95;it&#95;works">How It Works</h2><p>At <code>compile-workflow</code> time, for each cell that matches any interceptor's scope, the cell's handler is wrapped:</p><pre><code>original-handler
+  ↓ wrapped by matching interceptors
+intercepted-handler = &#40;fn &#91;resources data&#93;
+                        &#40;-&gt;&gt; data
+                             &#40;apply-pre-interceptors&#41;
+                             &#40;original-handler resources&#41;
+                             &#40;apply-post-interceptors&#41;&#41;&#41;
+</code></pre><p>This happens before the FSM is built — the interceptor wrapping is transparent to Maestro.</p><h2 id="interceptors&#95;vs&#95;maestro&#95;fsm&#95;interceptors">Interceptors vs Maestro FSM Interceptors</h2><table><thead><tr><th></th><th>Workflow-Level Interceptors</th><th>Maestro FSM Interceptors</th></tr></thead><tbody><tr><td>Signature</td><td><code>&#40;fn &#91;data&#93; -&gt; data&#41;</code></td><td><code>&#40;fn &#91;fsm-state resources&#93; -&gt; fsm-state&#41;</code></td></tr><tr><td>Scope</td><td>Per-cell, pattern-matched</td><td>Global (all states)</td></tr><tr><td>Defined in</td><td>Workflow <code>:interceptors</code></td><td><code>run-workflow</code> opts <code>:pre</code>/<code>:post</code></td></tr><tr><td>Purpose</td><td>Cell-specific data transforms</td><td>Schema validation, tracing</td></tr></tbody></table><p>Both can coexist. Schema interceptors (pre/post) run at the FSM level and are always present. Workflow interceptors wrap individual cell handlers inside the FSM state.</p><h2 id="common&#95;use&#95;cases">Common Use Cases</h2><h3 id="injecting&#95;navigation&#95;context&#95;for&#95;ui&#95;cells">Injecting navigation context for UI cells</h3><pre><code class="clojure">{:id    :nav-context
+ :scope {:id-match &quot;ui/&#42;&quot;}
+ :pre   &#40;fn &#91;data&#93;
+          &#40;assoc data
+                 :logged-in &#40;boolean &#40;:user-id data&#41;&#41;
+                 :nav-items &#40;if &#40;:user-id data&#41;
+                              &#91;&quot;Dashboard&quot; &quot;Profile&quot; &quot;Logout&quot;&#93;
+                              &#91;&quot;Login&quot;&#93;&#41;&#41;&#41;}
+</code></pre><h3 id="request&#95;timing">Request timing</h3><pre><code class="clojure">{:id    :timing
+ :scope :all
+ :pre   &#40;fn &#91;data&#93; &#40;assoc data ::start-ns &#40;System/nanoTime&#41;&#41;&#41;
+ :post  &#40;fn &#91;data&#93;
+          &#40;let &#91;elapsed &#40;/ &#40;- &#40;System/nanoTime&#41; &#40;::start-ns data&#41;&#41; 1e6&#41;&#93;
+            &#40;println &quot;Cell took&quot; elapsed &quot;ms&quot;&#41;
+            &#40;dissoc data ::start-ns&#41;&#41;&#41;}
+</code></pre><h3 id="error&#95;context&#95;enrichment">Error context enrichment</h3><pre><code class="clojure">{:id    :error-context
+ :scope :all
+ :post  &#40;fn &#91;data&#93;
+          &#40;if &#40;:error-type data&#41;
+            &#40;assoc data :error-context {:timestamp &#40;java.time.Instant/now&#41;
+                                         :workflow-id :my-workflow}&#41;
+            data&#41;&#41;}
+</code></pre>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

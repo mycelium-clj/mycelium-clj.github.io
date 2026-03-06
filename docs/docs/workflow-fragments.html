@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Workflow Fragments</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#workflow_fragments">Workflow Fragments</a></li><li><a href="#problem">Problem</a></li><li><a href="#fragment_structure">Fragment Structure</a></li><li><a href="#exit_references">Exit References</a></li><li><a href="#using_fragments_in_manifests">Using Fragments in Manifests</a></li><li><a href="#fragment_mapping_fields">Fragment Mapping Fields</a></li><li><a href="#expansion_process">Expansion Process</a></li><li><a href="#programmatic_api">Programmatic API</a></li><li><a href="#validation">Validation</a></li><li><a href="#tips">Tips</a></li></ol>
+      
+      <div id="content">
+        <h1 id="workflow&#95;fragments">Workflow Fragments</h1><p>Fragments are reusable sub-workflows that can be embedded into multiple host manifests, eliminating duplication of common patterns like authentication flows.</p><h2 id="problem">Problem</h2><p>Without fragments, every workflow that needs authentication duplicates the same 3-4 cells, edges, and dispatches. Changing the auth flow means updating 6+ manifest files.</p><h2 id="fragment&#95;structure">Fragment Structure</h2><p>A fragment is an EDN file declaring its own cells, edges, dispatches, entry point, and named exits:</p><pre><code class="clojure">;; resources/fragments/cookie-auth.edn
+{:id    :cookie-auth
+ :doc   &quot;Cookie-based auth: extract token → validate session → fetch profile&quot;
+
+ :entry :extract-session        ;; which cell is the entry point
+ :exits &#91;:success :failure&#93;     ;; named exits the host must wire
+
+ :cells
+ {:extract-session
+  {:id       :auth/extract-cookie-session
+   :schema   {:input  &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;
+              :output {:success &#91;:map &#91;:auth-token :string&#93;&#93;
+                       :failure &#91;:map &#91;:error-type :keyword&#93;
+                                      &#91;:error-message :string&#93;&#93;}}
+   :on-error :&#95;exit/failure     ;; resolves to host's :failure exit target
+   :requires &#91;&#93;}
+
+  :validate-session
+  {:id       :auth/validate-session
+   :schema   {:input  &#91;:map &#91;:auth-token :string&#93;&#93;
+              :output {:authorized   &#91;:map &#91;:session-valid :boolean&#93; &#91;:user-id :string&#93;&#93;
+                       :unauthorized &#91;:map &#91;:session-valid :boolean&#93;
+                                           &#91;:error-type :keyword&#93;
+                                           &#91;:error-message :string&#93;&#93;}}
+   :on-error :&#95;exit/failure
+   :requires &#91;:db&#93;}
+
+  :fetch-profile
+  {:id       :user/fetch-profile
+   :schema   {:input  &#91;:map &#91;:user-id :string&#93; &#91;:session-valid :boolean&#93;&#93;
+              :output {:found     &#91;:map &#91;:profile map?&#93;&#93;
+                       :not-found &#91;:map &#91;:error-type :keyword&#93;
+                                        &#91;:error-message :string&#93;&#93;}}
+   :on-error :&#95;exit/failure
+   :requires &#91;:db&#93;}}
+
+ :edges
+ {:extract-session  {:success :validate-session
+                     :failure :&#95;exit/failure}
+  :validate-session {:authorized   :fetch-profile
+                     :unauthorized :&#95;exit/failure}
+  :fetch-profile    {:found     :&#95;exit/success
+                     :not-found :&#95;exit/failure}}
+
+ :dispatches
+ {:extract-session  &#91;&#91;:success &#40;fn &#91;data&#93; &#40;:auth-token data&#41;&#41;&#93;
+                     &#91;:failure &#40;fn &#91;data&#93; &#40;:error-type data&#41;&#41;&#93;&#93;
+  :validate-session &#91;&#91;:authorized   &#40;fn &#91;data&#93; &#40;:session-valid data&#41;&#41;&#93;
+                     &#91;:unauthorized &#40;fn &#91;data&#93; &#40;not &#40;:session-valid data&#41;&#41;&#41;&#93;&#93;
+  :fetch-profile    &#91;&#91;:found     &#40;fn &#91;data&#93; &#40;:profile data&#41;&#41;&#93;
+                     &#91;:not-found &#40;fn &#91;data&#93; &#40;:error-type data&#41;&#41;&#93;&#93;}}
+</code></pre><h2 id="exit&#95;references">Exit References</h2><p>Fragment edges use <code>:&#95;exit/name</code> keywords to reference named exits:</p><ul><li><code>:&#95;exit/success</code> → resolves to the host's <code>:success</code> exit target</li><li><code>:&#95;exit/failure</code> → resolves to the host's <code>:failure</code> exit target</li></ul><p>Cell <code>:on-error</code> fields can also use <code>:&#95;exit/&#42;</code> references. They are resolved during expansion.</p><h2 id="using&#95;fragments&#95;in&#95;manifests">Using Fragments in Manifests</h2><p>Host manifests reference fragments via the <code>:fragments</code> key:</p><pre><code class="clojure">;; resources/workflows/dashboard.edn
+{:id :dashboard
+ :input-schema &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;
+
+ :fragments
+ {:auth {:ref   &quot;fragments/cookie-auth.edn&quot;  ;; load from classpath resource
+         :as    :start                         ;; entry cell becomes :start
+         :exits {:success :render-dashboard    ;; :&#95;exit/success → :render-dashboard
+                 :failure :render-error}}}     ;; :&#95;exit/failure → :render-error
+
+ :cells
+ {:render-dashboard
+  {:id       :ui/render-dashboard
+   :schema   {:input  &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
+              :output &#91;:map &#91;:html :string&#93;&#93;}
+   :on-error :render-error
+   :requires &#91;&#93;}
+
+  :render-error
+  {:id       :ui/render-error
+   :schema   {:input  &#91;:map&#93;
+              :output &#91;:map &#91;:html :string&#93; &#91;:error-status :int&#93;&#93;}
+   :on-error nil
+   :requires &#91;&#93;}}
+
+ :edges
+ {:render-dashboard {:done :end}
+  :render-error     {:done :end}}
+
+ :dispatches
+ {:render-dashboard &#91;&#91;:done &#40;fn &#91;&#95;&#93; true&#41;&#93;&#93;
+  :render-error     &#91;&#91;:done &#40;fn &#91;&#95;&#93; true&#41;&#93;&#93;}}
+</code></pre><h2 id="fragment&#95;mapping&#95;fields">Fragment Mapping Fields</h2><table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><code>:ref</code></td><td>one of <code>:ref</code>/<code>:fragment</code></td><td>Classpath resource path to fragment EDN file</td></tr><tr><td><code>:fragment</code></td><td>one of <code>:ref</code>/<code>:fragment</code></td><td>Inline fragment data (instead of loading from file)</td></tr><tr><td><code>:as</code></td><td>no</td><td>Rename the fragment's entry cell (commonly <code>:start</code>)</td></tr><tr><td><code>:exits</code></td><td>yes</td><td>Map of fragment exit names to host cell targets</td></tr></tbody></table><h2 id="expansion&#95;process">Expansion Process</h2><p>Fragment expansion happens at manifest load time (<code>load-manifest</code> calls <code>expand-fragments</code> before <code>validate-manifest</code>):</p><ol><li>Load fragment EDN (from <code>:ref</code> path or inline <code>:fragment</code>)</li><li>Validate fragment structure (entry exists, exits declared, edges consistent)</li><li>Rename entry cell to <code>:as</code> value if provided</li><li>Replace <code>:&#95;exit/&#42;</code> references in edges with host exit targets</li><li>Resolve <code>:&#95;exit/&#42;</code> in cell <code>:on-error</code> fields</li><li>Check for cell name collisions between fragment and host</li><li>Merge fragment cells, edges, dispatches into host manifest</li></ol><h2 id="programmatic&#95;api">Programmatic API</h2><pre><code class="clojure">&#40;require '&#91;mycelium.fragment :as fragment&#93;&#41;
+
+;; Load fragment from classpath
+&#40;fragment/load-fragment &quot;fragments/cookie-auth.edn&quot;&#41;
+
+;; Validate a fragment
+&#40;fragment/validate-fragment fragment-data&#41;
+
+;; Expand a single fragment
+&#40;fragment/expand-fragment fragment-data
+  {:as :start, :exits {:success :next-cell, :failure :error-cell}}
+  existing-host-cells&#41;
+;; =&gt; {:cells {...} :edges {...} :dispatches {...}}
+
+;; Expand all fragments in a manifest
+&#40;fragment/expand-all-fragments manifest&#41;
+</code></pre><h2 id="validation">Validation</h2><p>Fragment validation checks:</p><ul><li><code>:entry</code> exists and is a valid cell name in the fragment</li><li><code>:exits</code> is non-empty</li><li>All edge targets are either fragment cell names or <code>:&#95;exit/name</code> for declared exits</li><li>All fragment exits are wired in the host mapping</li><li>No cell name collisions between fragment and host cells</li></ul><h2 id="tips">Tips</h2><ul><li>Fragment cells' <code>:on-error</code> should use <code>:&#95;exit/failure</code> to route errors to the host's error handler</li><li>The <code>:as</code> rename only applies to the entry cell — other fragment cells keep their original names</li><li>Multiple fragments can be used in the same manifest as long as cell names don't collide</li><li>Fragments cannot contain <code>:joins</code> (keep join workflows as standalone manifests)</li><li>Fragment dispatch predicates in EDN use <code>&#40;fn ...&#41;</code> forms, same as manifests</li><li><code>:dispatches</code> can be omitted from fragments (and host manifests) when all edges are unconditional keywords</li><li>Fragment cells support <code>:schema :inherit</code> to pull schemas from the cell registry instead of duplicating them</li></ul>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

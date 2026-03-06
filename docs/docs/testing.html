@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Testing</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#testing_mycelium_applications">Testing Mycelium Applications</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li><li><a href="#testing_multiple_transitions">Testing Multiple Transitions</a></li><li><a href="#testing_workflow_execution">Testing Workflow Execution</a></li><li><a href="#testing_input_schema_validation">Testing Input Schema Validation</a></li><li><a href="#testing_fragments">Testing Fragments</a></li><li><a href="#test_fixture_pattern_for_example_apps">Test Fixture Pattern for Example Apps</a></li><li><a href="#asserting_on_traces">Asserting on Traces</a></li><li><a href="#enumerating_all_paths">Enumerating All Paths</a></li><li><a href="#checking_implementation_status">Checking Implementation Status</a></li><li><a href="#visualizing_workflows">Visualizing Workflows</a></li></ol>
+      
+      <div id="content">
+        <h1 id="testing&#95;mycelium&#95;applications">Testing Mycelium Applications</h1><h2 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h2><p>Cells are designed to be tested independently. Use <code>dev/test-cell</code>:</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+;; Basic test — validates input/output schemas
+&#40;dev/test-cell :auth/parse-request
+  {:input     {:http-request {:body {&quot;auth-token&quot; &quot;tok&#95;abc&quot;}}}
+   :resources {}}&#41;
+;; =&gt; {:pass? true, :output {...}, :errors &#91;&#93;, :duration-ms 0.42}
+
+;; With dispatch verification — confirms which edge the output matches
+&#40;dev/test-cell :auth/parse-request
+  {:input      {:http-request {:body {&quot;auth-token&quot; &quot;tok&#95;abc&quot;}}}
+   :resources  {}
+   :dispatches &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:auth-token d&#41;&#41;&#93;
+                &#91;:failure &#40;fn &#91;d&#93; &#40;:error-type d&#41;&#41;&#93;&#93;
+   :expected-dispatch :success}&#41;
+;; =&gt; {:pass? true, :matched-dispatch :success, ...}
+</code></pre><h2 id="testing&#95;multiple&#95;transitions">Testing Multiple Transitions</h2><p>When a cell has multiple outgoing paths, test them all:</p><pre><code class="clojure">&#40;dev/test-transitions :user/fetch-profile
+  {:found     {:input {:user-id &quot;alice&quot; :session-valid true}
+               :resources {:db test-db}
+               :dispatches &#91;&#91;:found     &#40;fn &#91;d&#93; &#40;:profile d&#41;&#41;&#93;
+                            &#91;:not-found &#40;fn &#91;d&#93; &#40;:error-type d&#41;&#41;&#93;&#93;}
+   :not-found {:input {:user-id &quot;nobody&quot; :session-valid true}
+               :resources {:db test-db}
+               :dispatches &#91;&#91;:found     &#40;fn &#91;d&#93; &#40;:profile d&#41;&#41;&#93;
+                            &#91;:not-found &#40;fn &#91;d&#93; &#40;:error-type d&#41;&#41;&#93;&#93;}}&#41;
+;; =&gt; {:found     {:pass? true, :matched-dispatch :found, ...}
+;;     :not-found {:pass? true, :matched-dispatch :not-found, ...}}
+</code></pre><h2 id="testing&#95;workflow&#95;execution">Testing Workflow Execution</h2><p>Run a complete workflow and assert on the result and trace:</p><pre><code class="clojure">&#40;deftest dashboard-workflow-test
+  &#40;let &#91;result &#40;myc/run-workflow
+                 workflow-def
+                 {:db test-db}
+                 {:http-request {:cookies {&quot;session-token&quot; {:value &quot;valid-tok&quot;}}}}&#41;&#93;
+    ;; Check output
+    &#40;is &#40;string? &#40;:html result&#41;&#41;&#41;
+    ;; Check execution path via trace
+    &#40;let &#91;trace &#40;:mycelium/trace result&#41;&#93;
+      &#40;is &#40;= &#91;:start :validate-session :fetch-profile :render-dashboard&#93;
+             &#40;mapv :cell trace&#41;&#41;&#41;&#41;&#41;&#41;
+</code></pre><h2 id="testing&#95;input&#95;schema&#95;validation">Testing Input Schema Validation</h2><pre><code class="clojure">&#40;deftest input-schema-rejects-missing-keys
+  &#40;let &#91;result &#40;myc/run-workflow
+                 workflow-def
+                 {:db test-db}
+                 {:wrong-key &quot;data&quot;}&#41;&#93;    ;; missing :http-request
+    &#40;is &#40;contains? result :mycelium/input-error&#41;&#41;
+    &#40;is &#40;= &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;
+           &#40;get-in result &#91;:mycelium/input-error :schema&#93;&#41;&#41;&#41;&#41;&#41;
+</code></pre><h2 id="testing&#95;fragments">Testing Fragments</h2><p>Test that fragment expansion produces the expected cells and edges:</p><pre><code class="clojure">&#40;require '&#91;mycelium.fragment :as fragment&#93;&#41;
+
+&#40;deftest fragment-expansion-test
+  &#40;let &#91;frag &#40;fragment/load-fragment &quot;fragments/cookie-auth.edn&quot;&#41;
+        result &#40;fragment/expand-fragment frag
+                 {:as :start, :exits {:success :dashboard, :failure :error}}
+                 #{}&#41;&#93;
+    ;; Entry cell renamed
+    &#40;is &#40;contains? &#40;:cells result&#41; :start&#41;&#41;
+    ;; Exit references resolved
+    &#40;is &#40;= :error &#40;get-in result &#91;:edges :start :failure&#93;&#41;&#41;&#41;
+    &#40;is &#40;= :dashboard &#40;get-in result &#91;:edges :fetch-profile :found&#93;&#41;&#41;&#41;
+    ;; :on-error resolved
+    &#40;is &#40;= :error &#40;get-in result &#91;:cells :start :on-error&#93;&#41;&#41;&#41;&#41;&#41;
+</code></pre><h2 id="test&#95;fixture&#95;pattern&#95;for&#95;example&#95;apps">Test Fixture Pattern for Example Apps</h2><p>Example app cells register via <code>defmethod</code> at namespace load time. If test fixtures clear global state, re-require with <code>:reload</code>:</p><pre><code class="clojure">&#40;use-fixtures :each
+  &#40;fn &#91;f&#93;
+    &#40;require '&#91;app.cells.auth&#93; :reload&#41;
+    &#40;require '&#91;app.cells.user&#93; :reload&#41;
+    &#40;require '&#91;app.cells.ui&#93; :reload&#41;
+    &#40;f&#41;&#41;&#41;
+</code></pre><h2 id="asserting&#95;on&#95;traces">Asserting on Traces</h2><pre><code class="clojure">&#40;let &#91;trace &#40;:mycelium/trace result&#41;&#93;
+  ;; Execution order
+  &#40;is &#40;= &#91;:start :validate :render&#93; &#40;mapv :cell trace&#41;&#41;&#41;
+  ;; Transitions taken
+  &#40;is &#40;= &#91;:success :authorized :done&#93; &#40;mapv :transition trace&#41;&#41;&#41;
+  ;; Data at specific step
+  &#40;is &#40;= &quot;alice&quot; &#40;get-in &#40;second trace&#41; &#91;:data :user-id&#93;&#41;&#41;&#41;&#41;
+</code></pre><h2 id="enumerating&#95;all&#95;paths">Enumerating All Paths</h2><p>Get all possible execution paths through a workflow:</p><pre><code class="clojure">&#40;dev/enumerate-paths manifest&#41;
+;; =&gt; &#91;&#91;{:cell :start, :transition :success, :target :validate}
+;;      {:cell :validate, :transition :authorized, :target :end}&#93;
+;;     &#91;{:cell :start, :transition :failure, :target :error}&#93;
+;;     ...&#93;
+</code></pre><h2 id="checking&#95;implementation&#95;status">Checking Implementation Status</h2><pre><code class="clojure">&#40;dev/workflow-status manifest&#41;
+;; =&gt; {:total 4, :passing 2, :failing 1, :pending 1, :cells &#91;...&#93;}
+</code></pre><h2 id="visualizing&#95;workflows">Visualizing Workflows</h2><pre><code class="clojure">;; Single workflow
+&#40;dev/workflow-&gt;dot manifest&#41;
+;; =&gt; &quot;digraph { ... }&quot;
+
+;; Full system
+&#40;require '&#91;mycelium.system :as sys&#93;&#41;
+&#40;sys/system-&gt;dot system&#41;
+;; =&gt; &quot;digraph system { ... }&quot;
+</code></pre><p>Pipe to Graphviz: <code>echo &quot;digraph { ... }&quot; | dot -Tpng -o workflow.png</code></p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

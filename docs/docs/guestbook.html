@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Your First Application</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#guestbook_application">Guestbook Application</a></li><li><a href="#installing_jdk">Installing JDK</a></li><li><a href="#installing_a_build_tool">Installing a Build Tool</a></li><li><a href="#creating_a_new_application">Creating a new application</a></li><li><a href="#anatomy_of_a_mycelium_application">Anatomy of a Mycelium application</a></li><li><a href="#the_source_directory">The Source Directory</a></li><li><a href="#understanding_cells_and_workflows">Understanding Cells and Workflows</a></li><li><a href="#the_env_directory">The Env Directory</a></li><li><a href="#the_test_directory">The Test Directory</a></li><li><a href="#the_resources_directory">The Resources Directory</a></li><li><a href="#starting_our_server">Starting Our Server</a></li><li><a href="#system_configuration">System Configuration</a></li><li><a href="#adding_database_support">Adding Database Support</a></li><li><a href="#creating_guestbook_cells">Creating Guestbook Cells</a></li><li><a href="#creating_the_guestbook_workflow">Creating the Guestbook Workflow</a></li><li><a href="#adding_routes">Adding Routes</a></li><li><a href="#creating_the_html_template">Creating the HTML Template</a></li><li><a href="#testing_the_application">Testing the Application</a></li><li><a href="#adding_some_tests">Adding some tests</a></li><li><a href="#packaging_the_application">Packaging the application</a></li></ol>
+      
+      <div id="content">
+        <h2 id="guestbook&#95;application">Guestbook Application</h2><p>This tutorial will guide you through building a simple guestbook application using Mycelium. The guestbook allows users to leave a message and to view a list of messages left by others. The application will demonstrate the basics of Mycelium workflows, HTML templating, database access, and project architecture.</p><p>If you don't have a preferred Clojure editor already, then it's recommended that you use <a href='https://calva.io/getting-started/'>Calva</a> to follow along with this tutorial.</p><h3 id="installing&#95;jdk">Installing JDK</h3><p>Clojure runs on the JVM and requires a copy of JDK to be installed. If you don't have JDK already on your system then OpenJDK is recommended and can be downloaded <a href='http://www.azul.com/downloads/zulu/'>here</a>. Note that Mycelium requires JDK 11 or greater to work with the default settings. Alternatively, follow the instructions for installing packages on your system.</p><h3 id="installing&#95;a&#95;build&#95;tool">Installing a Build Tool</h3><p>Mycelium uses <a href='https://clojure.org/guides/deps_and_cli'>Clojure Deps and CLI</a> for building and running projects.</p><p>To install Clojure CLI, follow the steps below depending on your operating system.</p><p>MacOS</p><pre><code>brew install clojure/tools/clojure
+</code></pre><p>Linux</p><pre><code>curl -L -O https://github.com/clojure/brew-install/releases/latest/download/posix-install.sh
+chmod +x posix-install.sh
+sudo ./posix-install.sh
+</code></pre><p>For both macOS and Linux, you will also need <a href='https://github.com/babashka/neil'>neil</a> to generate new projects:</p><pre><code>brew install babashka/brew/neil
+</code></pre><p>Alternatively, you can use <a href='https://github.com/seancorfield/deps-new'>deps-new</a> directly.</p><h3 id="creating&#95;a&#95;new&#95;application">Creating a new application</h3><p>Once you have the Clojure CLI installed, you can run the following commands in your terminal to initialize your application:</p><pre><code>neil new io.github.mycelium-clj/web yourname/guestbook
+cd guestbook
+</code></pre><p>The above will create a new project, named <code>yourname/guestbook</code>, based on the Mycelium web template.</p><h3 id="anatomy&#95;of&#95;a&#95;mycelium&#95;application">Anatomy of a Mycelium application</h3><p>The newly created application has the following structure:</p><pre><code>guestbook/
+├── deps.edn
+├── resources/
+│   ├── system.edn
+│   ├── logback.xml
+│   └── html/
+│       └── home.html
+├── src/clj/yourname/guestbook/
+│   ├── core.clj
+│   ├── config.clj
+│   ├── web/
+│   │   ├── handler.clj
+│   │   ├── middleware/
+│   │   │   └── core.clj
+│   │   └── routes/
+│   │       └── pages.clj
+│   ├── cells/
+│   │   └── home.clj
+│   └── workflows/
+│       └── home.clj
+├── env/
+│   ├── dev/clj/
+│   │   ├── user.clj
+│   │   └── yourname/guestbook/
+│   │       ├── env.clj
+│   │       └── dev&#95;middleware.clj
+│   └── prod/clj/
+│       └── yourname/guestbook/
+│           └── env.clj
+└── test/clj/yourname/guestbook/
+    └── core&#95;test.clj
+</code></pre><p>Let's take a look at what the files in the root folder of the application do:</p><ul><li><code>deps.edn</code> - used to manage the project configuration and dependencies</li><li><code>resources/system.edn</code> - used for system configuration with <a href='https://github.com/weavejester/integrant'>Integrant</a> and <a href='https://github.com/juxt/aero'>Aero</a></li><li><code>.gitignore</code> - a list of assets, such as build-generated files, to exclude from Git</li></ul><h3 id="the&#95;source&#95;directory">The Source Directory</h3><p>All our code lives under the <code>src/clj</code> folder. Since our application is called yourname/guestbook, this is the root namespace for the project. Let's take a look at all the namespaces that have been created for us.</p><h4 id="guestbook">guestbook</h4><ul><li><code>config.clj</code> - this is the place where your <code>system.edn</code> is read in to create an Integrant configuration map</li><li><code>core.clj</code> - this is the entry point for the application that contains the logic for starting and stopping the server</li></ul><h4 id="guestbook.web">guestbook.web</h4><p>The <code>web</code> namespace is used to define the edges of your application that deal with server communication, such as receiving HTTP requests and returning responses.</p><ul><li><code>handler.clj</code> - defines the Ring handler and router configuration</li><li><code>middleware/core.clj</code> - an aggregate of default middleware and environment-specific middleware</li><li><code>routes/pages.clj</code> - HTTP routes wired to Mycelium workflows</li></ul><h4 id="guestbook.cells">guestbook.cells</h4><p>The <code>cells</code> namespace is where Mycelium cell definitions live. Cells are pure functions with explicit input/output schemas.</p><ul><li><code>home.clj</code> - cell definitions for the default home page</li></ul><h4 id="guestbook.workflows">guestbook.workflows</h4><p>The <code>workflows</code> namespace is where Mycelium workflow definitions live. Workflows compose cells into directed graphs.</p><ul><li><code>home.clj</code> - the home page workflow (a pipeline of cells)</li></ul><h3 id="understanding&#95;cells&#95;and&#95;workflows">Understanding Cells and Workflows</h3><p>Mycelium applications are built from two core concepts:</p><p><strong>Cells</strong> are pure functions with explicit input/output schemas. Each cell is registered via <code>defmethod</code> and receives a resources map and a data map:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :request/parse-home &#91;&#95;&#93;
+  {:id      :request/parse-home
+   :doc     &quot;Extract name parameter from the HTTP request&quot;
+   :handler &#40;fn &#91;&#95;resources data&#93;
+              &#40;let &#91;params &#40;get-in data &#91;:http-request :query-params&#93;&#41;
+                    name   &#40;or &#40;get params &quot;name&quot;&#41; &quot;World&quot;&#41;&#93;
+                &#40;assoc data :name name&#41;&#41;&#41;
+   :schema  {:input  &#91;:map &#91;:http-request :map&#93;&#93;
+             :output &#91;:map &#91;:name :string&#93;&#93;}}&#41;
+</code></pre><p>The <code>:schema</code> map declares what data the cell expects (<code>:input</code>) and what it produces (<code>:output</code>). These schemas use <a href='https://github.com/metosin/malli'>Malli</a> and are validated at compile time.</p><p><strong>Workflows</strong> compose cells into directed graphs. The simplest form is a <code>:pipeline</code>:</p><pre><code class="clojure">&#40;def workflow-def
+  {:cells    {:start  :request/parse-home
+              :render :page/render-home}
+   :pipeline &#91;:start :render&#93;}&#41;
+
+&#40;def compiled &#40;myc/pre-compile workflow-def&#41;&#41;
+</code></pre><p>Data <strong>accumulates</strong> through the pipeline — each cell receives all keys from prior cells plus the initial input. The workflow is pre-compiled at load time for optimal performance.</p><p>Compiled workflows are wired to HTTP routes using <code>mycelium.middleware/workflow-handler</code>:</p><pre><code class="clojure">&#40;mw/workflow-handler home/compiled {}&#41;
+</code></pre><p>The handler passes the Ring request as <code>{:http-request request}</code> and extracts the <code>:html</code> key from the result as the response body.</p><h3 id="the&#95;env&#95;directory">The Env Directory</h3><p>Environment-specific code and resources are located under the <code>env/dev</code> and <code>env/prod</code> paths. The <code>dev</code> configuration will be used during development and testing, while the <code>prod</code> configuration will be used when the application is packaged for production.</p><h4 id="the&#95;dev&#95;directory">The Dev Directory</h4><ul><li><code>user.clj</code> - a utility namespace for REPL development. You start and stop your server from here during development.</li><li><code>guestbook/env.clj</code> - contains the development configuration defaults</li><li><code>guestbook/dev&#95;middleware.clj</code> - contains middleware used for development that should not be compiled in production</li></ul><h4 id="the&#95;prod&#95;directory">The Prod Directory</h4><ul><li><code>guestbook/env.clj</code> namespace with the production configuration</li></ul><h3 id="the&#95;test&#95;directory">The Test Directory</h3><p>Here is where we put tests for our application. Some test utilities have been provided.</p><h3 id="the&#95;resources&#95;directory">The Resources Directory</h3><p>This is where we put all the resources that will be packaged with our application. The <code>system.edn</code> file defines the system configuration, and the <code>html</code> directory contains Selmer templates.</p><h3 id="starting&#95;our&#95;server">Starting Our Server</h3><p>Your REPL is your best friend in Clojure. Let's start our local development REPL by running</p><pre><code>clj -M:dev
+</code></pre><p>Once you are in the REPL, you can start the system:</p><pre><code class="clojure">&#40;go&#41;     ;; Start the system
+
+&#40;halt&#41;   ;; Stop the system
+
+&#40;reset&#41;  ;; Reload code and restart
+</code></pre><p>To confirm that your server is running, visit <a href='http://localhost:3000'>http://localhost:3000</a>.</p><h3 id="system&#95;configuration">System Configuration</h3><p>System resources such as HTTP server ports and database connections are defined in the <code>resources/system.edn</code> file. For example, this key defines HTTP server configuration:</p><pre><code class="clojure">:server/http
+ {:port    #long #or &#91;#env PORT 3000&#93;
+  :host    #or &#91;#env HTTP&#95;HOST &quot;0.0.0.0&quot;&#93;
+  :handler #ig/ref :handler/ring}
+</code></pre><p>Components are wired together using Integrant references (<code>#ig/ref</code>). The dependency chain is: <strong>server</strong> → <strong>handler</strong> → <strong>router</strong> → <strong>routes</strong>.</p><p>Now that we've looked at the structure of the default project, let's add the guestbook functionality.</p><h3 id="adding&#95;database&#95;support">Adding Database Support</h3><p>Our guestbook needs a database to store messages. We'll use SQLite with <a href='https://github.com/seancorfield/next-jdbc'>next.jdbc</a>.</p><p>First, add the database dependencies to your <code>deps.edn</code> under the <code>:deps</code> key:</p><pre><code class="clojure">com.github.seancorfield/next.jdbc {:mvn/version &quot;1.3.939&quot;}
+org.xerial/sqlite-jdbc            {:mvn/version &quot;3.45.3.0&quot;}
+</code></pre><p>Next, create a database namespace at <code>src/clj/yourname/guestbook/db.clj</code>:</p><pre><code class="clojure">&#40;ns yourname.guestbook.db
+  &#40;:require &#91;integrant.core :as ig&#93;
+            &#91;next.jdbc :as jdbc&#93;&#41;&#41;
+
+&#40;defmethod ig/init-key :db/connection &#91;&#95; {:keys &#91;jdbc-url&#93;}&#93;
+  &#40;let &#91;ds &#40;jdbc/get-datasource {:jdbcUrl jdbc-url}&#41;&#93;
+    &#40;jdbc/execute! ds
+      &#91;&quot;CREATE TABLE IF NOT EXISTS guestbook
+        &#40;id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name VARCHAR&#40;30&#41;,
+         message VARCHAR&#40;200&#41;,
+         timestamp TIMESTAMP DEFAULT CURRENT&#95;TIMESTAMP&#41;&quot;&#93;&#41;
+    ds&#41;&#41;
+</code></pre><p>This creates an Integrant component that provides a database connection and ensures the guestbook table exists on startup.</p><p>Now add the database configuration to <code>resources/system.edn</code>:</p><pre><code class="clojure">:db/connection
+{:jdbc-url #profile {:dev  &quot;jdbc:sqlite:guestbook&#95;dev.db&quot;
+                     :test &quot;jdbc:sqlite:guestbook&#95;test.db&quot;
+                     :prod #env JDBC&#95;URL}}
+</code></pre><p>Update the <code>:reitit.routes/pages</code> entry to reference the database:</p><pre><code class="clojure">:reitit.routes/pages
+{:db #ig/ref :db/connection}
+</code></pre><p>Finally, require the db namespace in <code>core.clj</code> so the Integrant key is registered:</p><pre><code class="clojure">&#40;ns yourname.guestbook.core
+  &#40;:require
+    ...
+    &#91;yourname.guestbook.db&#93;&#41;&#41;
+</code></pre><h3 id="creating&#95;guestbook&#95;cells">Creating Guestbook Cells</h3><p>Now let's define the cells for our guestbook. Create a new file at <code>src/clj/yourname/guestbook/cells/guestbook.clj</code>:</p><pre><code class="clojure">&#40;ns yourname.guestbook.cells.guestbook
+  &#40;:require &#91;mycelium.cell :as cell&#93;
+            &#91;next.jdbc :as jdbc&#93;
+            &#91;next.jdbc.result-set :as rs&#93;
+            &#91;selmer.parser :as selmer&#93;&#41;&#41;
+
+&#40;defmethod cell/cell-spec :guestbook/load-messages &#91;&#95;&#93;
+  {:id       :guestbook/load-messages
+   :doc      &quot;Load all guestbook messages from the database&quot;
+   :requires &#91;:db&#93;
+   :handler  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
+               &#40;assoc data :messages
+                      &#40;jdbc/execute! db
+                        &#91;&quot;SELECT &#42; FROM guestbook ORDER BY timestamp DESC&quot;&#93;
+                        {:builder-fn rs/as-unqualified-maps}&#41;&#41;&#41;
+   :schema   {:input  &#91;:map&#93;
+              :output &#91;:map &#91;:messages &#91;:sequential :map&#93;&#93;&#93;}}&#41;
+
+&#40;defmethod cell/cell-spec :page/render-guestbook &#91;&#95;&#93;
+  {:id      :page/render-guestbook
+   :doc     &quot;Render the guestbook page with messages&quot;
+   :handler &#40;fn &#91;&#95;resources data&#93;
+              &#40;assoc data :html
+                     &#40;selmer/render-file &quot;html/guestbook.html&quot;
+                                         {:messages &#40;:messages data&#41;}&#41;&#41;&#41;
+   :schema  {:input  &#91;:map &#91;:messages &#91;:sequential :map&#93;&#93;&#93;
+             :output &#91;:map &#91;:html :string&#93;&#93;}}&#41;
+</code></pre><p>The <code>:guestbook/load-messages</code> cell declares <code>:requires &#91;:db&#93;</code>, which means it expects a <code>:db</code> key in its resources map. We use <code>rs/as-unqualified-maps</code> so that result columns are returned as simple keys like <code>:name</code> and <code>:message</code> rather than qualified keys like <code>:guestbook/name</code>.</p><p>The <code>:page/render-guestbook</code> cell takes the loaded messages and renders a <a href='https://github.com/yogthos/Selmer'>Selmer</a> template.</p><h3 id="creating&#95;the&#95;guestbook&#95;workflow">Creating the Guestbook Workflow</h3><p>Create the workflow at <code>src/clj/yourname/guestbook/workflows/guestbook.clj</code>:</p><pre><code class="clojure">&#40;ns yourname.guestbook.workflows.guestbook
+  &#40;:require &#91;mycelium.core :as myc&#93;
+            ;; Load cell definitions
+            &#91;yourname.guestbook.cells.guestbook&#93;&#41;&#41;
+
+&#40;def home-def
+  {:cells    {:load   :guestbook/load-messages
+              :render :page/render-guestbook}
+   :pipeline &#91;:load :render&#93;}&#41;
+
+&#40;def home-compiled &#40;myc/pre-compile home-def&#41;&#41;
+</code></pre><p>This defines a simple pipeline: load messages from the database, then render the page. The workflow is pre-compiled at namespace load time for optimal performance.</p><h3 id="adding&#95;routes">Adding Routes</h3><p>Update <code>src/clj/yourname/guestbook/web/routes/pages.clj</code> to add our guestbook routes:</p><pre><code class="clojure">&#40;ns yourname.guestbook.web.routes.pages
+  &#40;:require &#91;integrant.core :as ig&#93;
+            &#91;mycelium.middleware :as mw&#93;
+            &#91;next.jdbc :as jdbc&#93;
+            &#91;yourname.guestbook.workflows.guestbook :as guestbook&#93;&#41;&#41;
+
+&#40;defn save-message-handler &#91;db&#93;
+  &#40;fn &#91;{:keys &#91;params&#93;}&#93;
+    &#40;let &#91;{:keys &#91;name message&#93;} params&#93;
+      &#40;when &#40;and &#40;seq name&#41; &#40;seq message&#41;&#41;
+        &#40;jdbc/execute! db
+          &#91;&quot;INSERT INTO guestbook &#40;name, message&#41; VALUES &#40;?, ?&#41;&quot;
+           name message&#93;&#41;&#41;&#41;
+    {:status  302
+     :headers {&quot;Location&quot; &quot;/&quot;}
+     :body    &quot;&quot;}&#41;&#41;
+
+&#40;defn page-routes &#91;{:keys &#91;db&#93;}&#93;
+  &#91;&#91;&quot;/&quot; {:get {:handler &#40;mw/workflow-handler
+                          guestbook/home-compiled
+                          {:resources {:db db}}&#41;}}&#93;
+   &#91;&quot;/save-message&quot; {:post {:handler &#40;save-message-handler db&#41;}}&#93;&#93;&#41;
+
+&#40;derive :reitit.routes/pages :reitit/routes&#41;
+
+&#40;defmethod ig/init-key :reitit.routes/pages
+  &#91;&#95; opts&#93;
+  &#40;fn &#91;&#93;
+    &#91;&quot;&quot; &#40;page-routes opts&#41;&#93;&#41;&#41;
+</code></pre><p>The home page route uses <code>mw/workflow-handler</code> to wire the compiled workflow to the GET endpoint. The workflow handler automatically passes the Ring request as <code>{:http-request request}</code> and extracts the <code>:html</code> key from the workflow result as the response body. Resources (in this case, the database connection) are passed through the options map.</p><p>The save route uses a simple handler function that extracts the form parameters, saves the message to the database, and redirects back to the home page. We use HTML5 <code>required</code> attributes on the form inputs for client-side validation.</p><h3 id="creating&#95;the&#95;html&#95;template">Creating the HTML Template</h3><p>Create <code>resources/html/guestbook.html</code>:</p><pre><code class="xml">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;Guestbook&lt;/title&gt;
+    &lt;link rel=&quot;stylesheet&quot;
+          href=&quot;https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css&quot;&gt;
+    &lt;style&gt;
+        ul.messages { list-style: none; }
+        ul.messages li {
+            padding: 10px;
+            border-bottom: 1px dotted #ccc;
+        }
+        li:last-child { border-bottom: none; }
+        li time { font-size: 12px; color: #888; }
+        form { padding: 30px; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;section class=&quot;section&quot;&gt;
+    &lt;div class=&quot;container&quot;&gt;
+        &lt;h1 class=&quot;title&quot;&gt;Guestbook&lt;/h1&gt;
+
+        &lt;div class=&quot;columns&quot;&gt;
+            &lt;div class=&quot;column&quot;&gt;
+                &lt;h3 class=&quot;subtitle&quot;&gt;Messages&lt;/h3&gt;
+                &lt;ul class=&quot;messages&quot;&gt;
+                    {% for item in messages %}
+                    &lt;li&gt;
+                        &lt;time&gt;{{item.timestamp}}&lt;/time&gt;
+                        &lt;p&gt;{{item.message}}&lt;/p&gt;
+                        &lt;p&gt;&lt;strong&gt;- {{item.name}}&lt;/strong&gt;&lt;/p&gt;
+                    &lt;/li&gt;
+                    {% endfor %}
+                &lt;/ul&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&quot;columns&quot;&gt;
+            &lt;div class=&quot;column&quot;&gt;
+                &lt;form method=&quot;POST&quot; action=&quot;/save-message&quot;&gt;
+                    &lt;div class=&quot;field&quot;&gt;
+                        &lt;label class=&quot;label&quot;&gt;Name&lt;/label&gt;
+                        &lt;div class=&quot;control&quot;&gt;
+                            &lt;input class=&quot;input&quot; type=&quot;text&quot;
+                                   name=&quot;name&quot; required /&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div class=&quot;field&quot;&gt;
+                        &lt;label class=&quot;label&quot;&gt;Message&lt;/label&gt;
+                        &lt;div class=&quot;control&quot;&gt;
+                            &lt;textarea class=&quot;textarea&quot;
+                                      name=&quot;message&quot; required&gt;&lt;/textarea&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div class=&quot;field&quot;&gt;
+                        &lt;div class=&quot;control&quot;&gt;
+                            &lt;input type=&quot;submit&quot;
+                                   class=&quot;button is-primary&quot;
+                                   value=&quot;Submit&quot; /&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/form&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/section&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre><p>We use a <code>for</code> iterator to walk through the messages. Since each message is a map with <code>:name</code>, <code>:message</code>, and <code>:timestamp</code> keys, we can access them by name in the Selmer template.</p><p>The form uses HTML5 <code>required</code> attributes for client-side validation, and submits a POST request to <code>/save-message</code>.</p><h3 id="testing&#95;the&#95;application">Testing the Application</h3><p>Restart your REPL to pick up the new dependencies and code:</p><pre><code class="clojure">&#40;reset&#41;
+</code></pre><p>Visit <a href='http://localhost:3000'>http://localhost:3000</a> and try adding some messages!</p><p>You can also test the database from the REPL:</p><pre><code class="clojure">&#40;require '&#91;next.jdbc :as jdbc&#93;&#41;
+&#40;require '&#91;next.jdbc.result-set :as rs&#93;&#41;
+
+&#40;def db &#40;:db/connection integrant.repl.state/system&#41;&#41;
+
+&#40;jdbc/execute! db
+  &#91;&quot;INSERT INTO guestbook &#40;name, message&#41; VALUES &#40;?, ?&#41;&quot;
+   &quot;REPL User&quot; &quot;Hello from the REPL!&quot;&#93;&#41;
+
+&#40;jdbc/execute! db
+  &#91;&quot;SELECT &#42; FROM guestbook&quot;&#93;
+  {:builder-fn rs/as-unqualified-maps}&#41;
+</code></pre><h2 id="adding&#95;some&#95;tests">Adding some tests</h2><p>Create a test at <code>test/clj/yourname/guestbook/guestbook&#95;test.clj</code>:</p><pre><code class="clojure">&#40;ns yourname.guestbook.guestbook-test
+  &#40;:require &#91;clojure.test :refer :all&#93;
+            &#91;next.jdbc :as jdbc&#93;
+            &#91;next.jdbc.result-set :as rs&#93;
+            &#91;mycelium.core :as myc&#93;
+            &#91;yourname.guestbook.cells.guestbook&#93;
+            &#91;yourname.guestbook.workflows.guestbook :as guestbook&#93;&#41;&#41;
+
+&#40;defn test-db &#91;&#93;
+  &#40;let &#91;ds &#40;jdbc/get-datasource {:jdbcUrl &quot;jdbc:sqlite::memory:&quot;}&#41;&#93;
+    &#40;jdbc/execute! ds
+      &#91;&quot;CREATE TABLE guestbook
+        &#40;id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name VARCHAR&#40;30&#41;,
+         message VARCHAR&#40;200&#41;,
+         timestamp TIMESTAMP DEFAULT CURRENT&#95;TIMESTAMP&#41;&quot;&#93;&#41;
+    ds&#41;&#41;
+
+&#40;deftest test-home-workflow
+  &#40;let &#91;ds &#40;test-db&#41;
+        &#95;  &#40;jdbc/execute! ds
+             &#91;&quot;INSERT INTO guestbook &#40;name, message&#41; VALUES &#40;?, ?&#41;&quot;
+              &quot;Test User&quot; &quot;Hello World&quot;&#93;&#41;
+        {:keys &#91;result&#93;} &#40;myc/run-compiled
+                           guestbook/home-compiled
+                           {:resources {:db ds}}
+                           {}&#41;&#93;
+    &#40;is &#40;= 1 &#40;count &#40;:messages result&#41;&#41;&#41;&#41;
+    &#40;is &#40;= &quot;Test User&quot; &#40;:name &#40;first &#40;:messages result&#41;&#41;&#41;&#41;&#41;
+    &#40;is &#40;string? &#40;:html result&#41;&#41;&#41;&#41;&#41;
+</code></pre><p>Run tests with:</p><pre><code>clj -M:test
+</code></pre><h2 id="packaging&#95;the&#95;application">Packaging the application</h2><p>You can run the application directly using:</p><pre><code>clj -M:run
+</code></pre><p>For building a standalone JAR for deployment, you can add <a href='https://clojure.org/guides/tools_build'>tools.build</a> to your project. Create a <code>build.clj</code> at the project root:</p><pre><code class="clojure">&#40;ns build
+  &#40;:require &#91;clojure.tools.build.api :as b&#93;&#41;&#41;
+
+&#40;def lib 'yourname/guestbook&#41;
+&#40;def class-dir &quot;target/classes&quot;&#41;
+&#40;def basis &#40;delay &#40;b/create-basis {:project &quot;deps.edn&quot;}&#41;&#41;&#41;
+&#40;def uber-file &quot;target/guestbook-standalone.jar&quot;&#41;
+
+&#40;defn clean &#91;&#95;&#93;
+  &#40;b/delete {:path &quot;target&quot;}&#41;&#41;
+
+&#40;defn uber &#91;&#95;&#93;
+  &#40;clean nil&#41;
+  &#40;b/copy-dir {:src-dirs   &#91;&quot;src/clj&quot; &quot;resources&quot; &quot;env/prod/clj&quot;&#93;
+               :target-dir class-dir}&#41;
+  &#40;b/compile-clj {:basis     @basis
+                  :src-dirs  &#91;&quot;src/clj&quot; &quot;env/prod/clj&quot;&#93;
+                  :class-dir class-dir}&#41;
+  &#40;b/uber {:class-dir class-dir
+           :uber-file uber-file
+           :basis     @basis
+           :main      'yourname.guestbook.core}&#41;&#41;
+</code></pre><p>Add a <code>:build</code> alias to <code>deps.edn</code>:</p><pre><code class="clojure">:build {:deps  {io.github.clojure/tools.build
+                {:git/tag &quot;v0.10.5&quot; :git/sha &quot;2a21b7a&quot;}}
+        :ns-default build}
+</code></pre><p>Then build and run:</p><pre><code>clj -T:build uber
+export JDBC&#95;URL=&quot;jdbc:sqlite:guestbook.db&quot;
+java -jar target/guestbook-standalone.jar
+</code></pre><hr/><p>Complete source for this tutorial is available in the <a href='https://github.com/mycelium-clj/mycelium-web-template'>mycelium-web-template</a> repository, which serves as the base for generated projects.</p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li class="selected" >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

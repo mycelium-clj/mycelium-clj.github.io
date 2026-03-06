@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Creating Cells</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#creating_cells">Creating Cells</a></li><li><a href="#cell_registration">Cell Registration</a></li><li><a href="#cell_spec_fields">Cell Spec Fields</a></li><li><a href="#handler_signature">Handler Signature</a></li><li><a href="#output_schema_formats">Output Schema Formats</a></li><li><a href="#rules">Rules</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li><li><a href="#common_patterns">Common Patterns</a></li><li><a href="#resource-dependent_cell">Resource-dependent cell</a></li><li><a href="#async_cell_(external_api_call)">Async cell (external API call)</a></li></ol>
+      
+      <div id="content">
+        <h1 id="creating&#95;cells">Creating Cells</h1><p>Cells are the atomic units of Mycelium. Each cell is a pure function with explicit schema contracts.</p><h2 id="cell&#95;registration">Cell Registration</h2><p>Register cells via <code>defmethod</code> on the <code>cell/cell-spec</code> multimethod:</p><pre><code class="clojure">&#40;ns my-app.cells.auth
+  &#40;:require &#91;mycelium.cell :as cell&#93;&#41;&#41;
+
+&#40;defmethod cell/cell-spec :auth/parse-request &#91;&#95;&#93;
+  {:id       :auth/parse-request
+   :handler  &#40;fn &#91;&#95;resources data&#93;
+               &#40;let &#91;body &#40;get-in data &#91;:http-request :body&#93;&#41;&#93;
+                 &#40;if-let &#91;token &#40;get body &quot;auth-token&quot;&#41;&#93;
+                   &#40;assoc data :auth-token token&#41;
+                   &#40;assoc data :error-type :missing-token
+                               :error-message &quot;No auth token provided&quot;&#41;&#41;&#41;&#41;
+   :schema   {:input  &#91;:map &#91;:http-request &#91;:map &#91;:body map?&#93;&#93;&#93;&#93;
+              :output {:success &#91;:map &#91;:auth-token :string&#93;&#93;
+                       :failure &#91;:map &#91;:error-type :keyword&#93;
+                                      &#91;:error-message :string&#93;&#93;}}
+   :requires &#91;&#93;}&#41;
+</code></pre><h2 id="cell&#95;spec&#95;fields">Cell Spec Fields</h2><table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><code>:id</code></td><td>yes</td><td>Keyword identifier, conventionally <code>namespace/name</code> (e.g. <code>:auth/parse-request</code>)</td></tr><tr><td><code>:handler</code></td><td>yes</td><td><code>&#40;fn &#91;resources data&#93; -&gt; data&#41;</code> for sync, or <code>&#40;fn &#91;resources data callback error-callback&#93;&#41;</code> for async</td></tr><tr><td><code>:schema</code></td><td>yes</td><td>Map with <code>:input</code> (Malli schema) and <code>:output</code> (single schema or per-transition map)</td></tr><tr><td><code>:requires</code></td><td>no</td><td>Vector of resource keys the handler needs (e.g. <code>&#91;:db&#93;</code>)</td></tr><tr><td><code>:async?</code></td><td>no</td><td>Set to <code>true</code> for async handlers</td></tr><tr><td><code>:doc</code></td><td>no</td><td>Documentation string</td></tr></tbody></table><h2 id="handler&#95;signature">Handler Signature</h2><p><strong>Sync</strong> (default):<pre><code class="clojure">&#40;fn &#91;resources data&#93; -&gt; data&#41;
+</code></pre></p><ul><li><code>resources</code>: map of injected dependencies (db, http-client, etc.)</li><li><code>data</code>: accumulating data map — all keys from prior cells are present</li><li>Returns: the data map with new keys assoc'd</li></ul><p><strong>Async</strong> (<code>:async? true</code>):<pre><code class="clojure">&#40;fn &#91;resources data callback error-callback&#93;&#41;
+</code></pre></p><ul><li><code>callback</code>: call with <code>&#40;callback updated-data&#41;</code> on success</li><li><code>error-callback</code>: call with <code>&#40;error-callback exception&#41;</code> on failure</li></ul><h2 id="output&#95;schema&#95;formats">Output Schema Formats</h2><p><strong>Single schema</strong> — all transitions must satisfy it:<pre><code class="clojure">:output &#91;:map &#91;:result :int&#93;&#93;
+</code></pre></p><p><strong>Per-transition schemas</strong> — each dispatch transition has its own contract:<pre><code class="clojure">:output {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
+         :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}
+</code></pre></p><p>The transition keys in the output map must match the dispatch labels defined in the workflow's <code>:dispatches</code> for this cell.</p><h2 id="rules">Rules</h2><ol><li>Cells must return the data map with computed values added (use <code>assoc</code>, not <code>select-keys</code>)</li><li>Output must satisfy the declared <code>:output</code> schema for the matched transition</li><li>Never import or call other cells — cells are isolated by design</li><li>Use only resources passed via the first argument — never acquire external dependencies directly</li><li>The <code>:id</code> used in <code>defmethod</code> must match the <code>:id</code> in the spec map</li></ol><h2 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h2><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+;; Basic test
+&#40;dev/test-cell :auth/parse-request
+  {:input     {:http-request {:body {&quot;auth-token&quot; &quot;tok&#95;abc&quot;}}}
+   :resources {}}&#41;
+;; =&gt; {:pass? true, :output {...}, :errors &#91;&#93;, :duration-ms 0.42}
+
+;; With dispatch verification
+&#40;dev/test-cell :auth/parse-request
+  {:input      {:http-request {:body {&quot;auth-token&quot; &quot;tok&#95;abc&quot;}}}
+   :resources  {}
+   :dispatches &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:auth-token d&#41;&#41;&#93;
+                &#91;:failure &#40;fn &#91;d&#93; &#40;:error-type d&#41;&#41;&#93;&#93;
+   :expected-dispatch :success}&#41;
+;; =&gt; {:pass? true, :matched-dispatch :success, ...}
+</code></pre><h2 id="common&#95;patterns">Common Patterns</h2><h3 id="resource-dependent&#95;cell">Resource-dependent cell</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :user/fetch-profile &#91;&#95;&#93;
+  {:id       :user/fetch-profile
+   :handler  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
+               &#40;if-let &#91;profile &#40;db/get-user db &#40;:user-id data&#41;&#41;&#93;
+                 &#40;assoc data :profile profile&#41;
+                 &#40;assoc data :error-type :not-found
+                             :error-message &quot;User not found&quot;&#41;&#41;&#41;
+   :schema   {:input  &#91;:map &#91;:user-id :string&#93;&#93;
+              :output {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
+                       :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}}
+   :requires &#91;:db&#93;}&#41;
+</code></pre><h3 id="async&#95;cell&#95;(external&#95;api&#95;call)">Async cell (external API call)</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :api/fetch-data &#91;&#95;&#93;
+  {:id       :api/fetch-data
+   :handler  &#40;fn &#91;&#95;resources data callback error-callback&#93;
+               &#40;future
+                 &#40;try
+                   &#40;let &#91;resp &#40;http/get &#40;:url data&#41;&#41;&#93;
+                     &#40;callback &#40;assoc data :response resp&#41;&#41;&#41;
+                   &#40;catch Exception e
+                     &#40;error-callback e&#41;&#41;&#41;&#41;&#41;
+   :schema   {:input  &#91;:map &#91;:url :string&#93;&#93;
+              :output &#91;:map &#91;:response map?&#93;&#93;}
+   :async?   true}&#41;
+</code></pre>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Composing Workflows</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#composing_workflows">Composing Workflows</a></li><li><a href="#workflow_definition_structure">Workflow Definition Structure</a></li><li><a href="#minimal_example">Minimal Example</a></li><li><a href="#edges">Edges</a></li><li><a href="#dispatches">Dispatches</a></li><li><a href="#accumulating_data_model">Accumulating Data Model</a></li><li><a href="#running_workflows">Running Workflows</a></li><li><a href="#pre-compiled_(recommended_for_production)">Pre-compiled (recommended for production)</a></li><li><a href="#convenience_(compiles_every_call)">Convenience (compiles every call)</a></li><li><a href="#join_nodes_(parallel_execution)">Join Nodes (Parallel Execution)</a></li><li><a href="#input_schema_validation">Input Schema Validation</a></li><li><a href="#workflow-level_interceptors">Workflow-Level Interceptors</a></li><li><a href="#compile-time_validation">Compile-Time Validation</a></li><li><a href="#workflow_trace">Workflow Trace</a></li></ol>
+      
+      <div id="content">
+        <h1 id="composing&#95;workflows">Composing Workflows</h1><p>Workflows are directed graphs of cells connected by edges and dispatch predicates.</p><h2 id="workflow&#95;definition&#95;structure">Workflow Definition Structure</h2><pre><code class="clojure">{:cells       {cell-name cell-id-or-spec, ...}
+ :edges       {cell-name edge-def, ...}
+ :dispatches  {cell-name &#91;&#91;label predicate&#93;, ...&#93;, ...}
+ :joins       {join-name join-spec, ...}           ;; optional
+ :input-schema malli-schema                         ;; optional
+ :interceptors &#91;interceptor-spec, ...&#93;              ;; optional
+}
+</code></pre><h2 id="minimal&#95;example">Minimal Example</h2><pre><code class="clojure">&#40;require '&#91;mycelium.core :as myc&#93;&#41;
+
+&#40;myc/run-workflow
+  {:cells {:start :math/double
+           :add   :math/add-ten}
+   :edges {:start {:done :add}
+           :add   {:done :end}}
+   :dispatches {:start &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;
+                :add   &#91;&#91;:done &#40;constantly true&#41;&#93;&#93;}}
+  {}          ;; resources
+  {:x 5}&#41;    ;; initial data
+;; =&gt; {:x 5, :result 20, :mycelium/trace &#91;...&#93;}
+</code></pre><h2 id="edges">Edges</h2><p>Edges define transitions from one cell to another. Two forms:</p><p><strong>Unconditional</strong> — single keyword target (no dispatches needed):<pre><code class="clojure">:edges {:start :next-cell}
+</code></pre></p><p><strong>Conditional</strong> — map of label→target (requires dispatches):<pre><code class="clojure">:edges {:start {:success :dashboard, :failure :error-page}}
+</code></pre></p><p>Special targets:</p><ul><li><code>:end</code> — workflow completes successfully</li><li><code>:error</code> — workflow terminates with error (Maestro terminal state)</li><li><code>:halt</code> — workflow halts (Maestro terminal state)</li></ul><h2 id="dispatches">Dispatches</h2><p>Dispatch predicates examine the data map and determine which edge to take. They are checked in order; the first truthy result wins:</p><pre><code class="clojure">:dispatches {:start &#91;&#91;:success &#40;fn &#91;data&#93; &#40;:auth-token data&#41;&#41;&#93;
+                     &#91;:failure &#40;fn &#91;data&#93; &#40;:error-type data&#41;&#41;&#93;&#93;}
+</code></pre><ul><li>Predicate receives the <code>data</code> map (not the full FSM state)</li><li>Labels must match the edge map keys for that cell</li><li>First truthy match wins — order matters</li></ul><h2 id="accumulating&#95;data&#95;model">Accumulating Data Model</h2><p>Cells communicate through an accumulating data map. Every cell receives ALL keys produced by every prior cell in the path:</p><pre><code>start → validate → fetch-profile → render
+         adds :user-id   adds :profile     needs :user-id AND :profile
+</code></pre><p><code>:render</code> can access <code>:user-id</code> even though <code>:fetch-profile</code> is between them — keys persist through the chain.</p><h2 id="running&#95;workflows">Running Workflows</h2><h3 id="pre-compiled&#95;(recommended&#95;for&#95;production)">Pre-compiled (recommended for production)</h3><p>Pre-compile once at startup, run with zero compilation overhead per request:</p><pre><code class="clojure">;; At startup
+&#40;def compiled &#40;myc/pre-compile workflow-def opts&#41;&#41;
+
+;; Per request — zero compilation overhead
+&#40;myc/run-compiled compiled resources initial-data&#41;
+
+;; Async variant — returns a future
+&#40;myc/run-compiled-async compiled resources initial-data&#41;
+</code></pre><p><code>pre-compile</code> performs all validation, FSM compilation, and Malli schema compilation at call time. <code>run-compiled</code> does only input-schema validation and FSM execution.</p><h3 id="convenience&#95;(compiles&#95;every&#95;call)">Convenience (compiles every call)</h3><pre><code class="clojure">;; Sync — compiles and runs in one step
+&#40;myc/run-workflow workflow-def resources initial-data&#41;
+&#40;myc/run-workflow workflow-def resources initial-data opts&#41;
+
+;; Async — returns a future
+&#40;myc/run-workflow-async workflow-def resources initial-data&#41;
+&#40;myc/run-workflow-async workflow-def resources initial-data opts&#41;
+</code></pre><p>These are convenient for tests and one-off runs. For repeated execution of the same workflow (e.g. HTTP request handling), use <code>pre-compile</code> + <code>run-compiled</code>.</p><p><strong>opts map</strong> (optional, passed to <code>pre-compile</code> or <code>run-workflow</code>):<pre><code class="clojure">{:pre  &#40;fn &#91;fsm-state resources&#93; -&gt; fsm-state&#41;  ;; FSM-level pre interceptor
+ :post &#40;fn &#91;fsm-state resources&#93; -&gt; fsm-state&#41;  ;; FSM-level post interceptor
+ :on-error &#40;fn &#91;resources fsm-state&#93; -&gt; fsm-state&#41;} ;; global error handler
+</code></pre></p><h2 id="join&#95;nodes&#95;(parallel&#95;execution)">Join Nodes (Parallel Execution)</h2><p>When multiple cells can run concurrently:</p><pre><code class="clojure">{:cells {:start          :auth/validate
+         :fetch-profile  :user/fetch-profile     ;; join member
+         :fetch-orders   :user/fetch-orders      ;; join member
+         :render-summary :ui/render-summary}
+
+ :joins {:fetch-data {:cells    &#91;:fetch-profile :fetch-orders&#93;
+                      :strategy :parallel}}
+
+ :edges {:start          {:authorized :fetch-data}
+         :fetch-data     {:done :render-summary, :failure :render-error}
+         :render-summary {:done :end}}}
+</code></pre><p>Key rules:</p><ul><li>Join members exist in <code>:cells</code> but have NO entries in <code>:edges</code> — the join consumes them</li><li>The join name appears in <code>:edges</code> like a regular cell</li><li>Each member receives the same input snapshot (branches can't see each other's output)</li><li>Default dispatches <code>:done</code> / <code>:failure</code> are injected automatically</li><li>Output keys from members must be disjoint unless <code>:merge-fn</code> is provided</li></ul><h2 id="input&#95;schema&#95;validation">Input Schema Validation</h2><p>Validate data entering the workflow before any cell runs:</p><pre><code class="clojure">{:input-schema &#91;:map &#91;:http-request &#91;:map &#91;:cookies map?&#93;&#93;&#93;&#93;
+ :cells {...}
+ :edges {...}}
+</code></pre><p>If validation fails, <code>run-workflow</code> returns immediately with:<pre><code class="clojure">{:mycelium/input-error {:schema &#91;...&#93;, :errors &#91;...&#93;, :data {...}}}
+</code></pre></p><h2 id="workflow-level&#95;interceptors">Workflow-Level Interceptors</h2><p>Transform data before/after cell handlers, scoped to matching cells:</p><pre><code class="clojure">{:interceptors
+ &#91;{:id    :nav-context
+   :scope {:id-match &quot;ui/&#42;&quot;}           ;; applies to cells with :id matching glob
+   :pre   &#40;fn &#91;data&#93;
+            &#40;assoc data :logged-in true&#41;&#41;}
+
+  {:id    :request-logging
+   :scope :all                          ;; applies to every cell
+   :post  &#40;fn &#91;data&#93;
+            &#40;println &quot;Cell done&quot; &#40;keys data&#41;&#41;
+            data&#41;}&#93;
+ :cells {...}}
+</code></pre><p>Scope options:</p><ul><li><code>:all</code> — every cell</li><li><code>{:id-match &quot;ui/&#42;&quot;}</code> — cells whose <code>:id</code> matches the glob pattern</li><li><code>{:cells &#91;:render-dashboard :render-error&#93;}</code> — explicit cell name list</li></ul><p>Interceptors are <code>&#40;fn &#91;data&#93; -&gt; data&#41;</code>, distinct from Maestro's FSM-level interceptors.</p><h2 id="compile-time&#95;validation">Compile-Time Validation</h2><p><code>compile-workflow</code> validates:</p><ul><li>Cell existence — all cell IDs must be registered</li><li>Edge targets — all targets must be valid cells, joins, or terminal states</li><li>Reachability — every cell/join must be reachable from <code>:start</code></li><li>Dispatch coverage — every edge label must have a dispatch predicate</li><li>Schema chain — each cell's input keys must be available from upstream outputs</li><li>Join validation — member cells exist, no name collisions, disjoint outputs</li></ul><h2 id="workflow&#95;trace">Workflow Trace</h2><p>Every run produces <code>:mycelium/trace</code> in the result:</p><pre><code class="clojure">&#40;:mycelium/trace result&#41;
+;; =&gt; &#91;{:cell :start, :cell-id :auth/parse, :transition :success, :data {...}}
+;;     {:cell :validate, :cell-id :auth/check, :transition :authorized, :data {...}}&#93;
+</code></pre>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>
