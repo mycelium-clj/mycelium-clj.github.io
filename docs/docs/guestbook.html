@@ -144,7 +144,7 @@ org.xerial/sqlite-jdbc            {:mvn/version &quot;3.45.3.0&quot;}
 </code></pre><p>This creates an Integrant component that provides a database connection and ensures the guestbook table exists on startup.</p><p>Now add the database configuration to <code>resources/system.edn</code>:</p><pre><code class="clojure">:db/connection
 {:jdbc-url #profile {:dev  &quot;jdbc:sqlite:guestbook&#95;dev.db&quot;
                      :test &quot;jdbc:sqlite:guestbook&#95;test.db&quot;
-                     :prod #env JDBC&#95;URL}}
+                     :prod #or &#91;#env JDBC&#95;URL &quot;jdbc:sqlite:guestbook.db&quot;&#93;}}
 </code></pre><p>Update the <code>:reitit.routes/pages</code> entry to reference the database:</p><pre><code class="clojure">:reitit.routes/pages
 {:db #ig/ref :db/connection}
 </code></pre><p>Finally, require the db namespace in <code>core.clj</code> so the Integrant key is registered:</p><pre><code class="clojure">&#40;ns yourname.guestbook.core
@@ -184,12 +184,12 @@ org.xerial/sqlite-jdbc            {:mvn/version &quot;3.45.3.0&quot;}
             &#91;yourname.guestbook.cells.guestbook&#93;&#41;&#41;
 
 &#40;def home-def
-  {:cells    {:load   :guestbook/load-messages
+  {:cells    {:start  :guestbook/load-messages
               :render :page/render-guestbook}
-   :pipeline &#91;:load :render&#93;}&#41;
+   :pipeline &#91;:start :render&#93;}&#41;
 
 &#40;def home-compiled &#40;myc/pre-compile home-def&#41;&#41;
-</code></pre><p>This defines a simple pipeline: load messages from the database, then render the page. The workflow is pre-compiled at namespace load time for optimal performance.</p><h3 id="adding&#95;routes">Adding Routes</h3><p>Update <code>src/clj/yourname/guestbook/web/routes/pages.clj</code> to add our guestbook routes:</p><pre><code class="clojure">&#40;ns yourname.guestbook.web.routes.pages
+</code></pre><p>This defines a simple pipeline: load messages from the database, then render the page. Note that the first cell in a pipeline must be named <code>:start</code> — this is how Mycelium determines the entry point. The workflow is pre-compiled at namespace load time for optimal performance.</p><h3 id="adding&#95;routes">Adding Routes</h3><p>Update <code>src/clj/yourname/guestbook/web/routes/pages.clj</code> to add our guestbook routes:</p><pre><code class="clojure">&#40;ns yourname.guestbook.web.routes.pages
   &#40;:require &#91;integrant.core :as ig&#93;
             &#91;mycelium.middleware :as mw&#93;
             &#91;next.jdbc :as jdbc&#93;
@@ -307,12 +307,16 @@ org.xerial/sqlite-jdbc            {:mvn/version &quot;3.45.3.0&quot;}
             &#91;next.jdbc.result-set :as rs&#93;
             &#91;mycelium.core :as myc&#93;
             &#91;yourname.guestbook.cells.guestbook&#93;
-            &#91;yourname.guestbook.workflows.guestbook :as guestbook&#93;&#41;&#41;
+            &#91;yourname.guestbook.workflows.guestbook :as guestbook&#93;&#41;
+  &#40;:import &#91;java.io File&#93;&#41;&#41;
 
 &#40;defn test-db &#91;&#93;
-  &#40;let &#91;ds &#40;jdbc/get-datasource {:jdbcUrl &quot;jdbc:sqlite::memory:&quot;}&#41;&#93;
+  &#40;let &#91;tmp  &#40;File/createTempFile &quot;guestbook-test&quot; &quot;.db&quot;&#41;
+        path &#40;.getAbsolutePath tmp&#41;
+        ds   &#40;jdbc/get-datasource {:jdbcUrl &#40;str &quot;jdbc:sqlite:&quot; path&#41;}&#41;&#93;
+    &#40;.deleteOnExit tmp&#41;
     &#40;jdbc/execute! ds
-      &#91;&quot;CREATE TABLE guestbook
+      &#91;&quot;CREATE TABLE IF NOT EXISTS guestbook
         &#40;id INTEGER PRIMARY KEY AUTOINCREMENT,
          name VARCHAR&#40;30&#41;,
          message VARCHAR&#40;200&#41;,
@@ -324,10 +328,10 @@ org.xerial/sqlite-jdbc            {:mvn/version &quot;3.45.3.0&quot;}
         &#95;  &#40;jdbc/execute! ds
              &#91;&quot;INSERT INTO guestbook &#40;name, message&#41; VALUES &#40;?, ?&#41;&quot;
               &quot;Test User&quot; &quot;Hello World&quot;&#93;&#41;
-        {:keys &#91;result&#93;} &#40;myc/run-compiled
-                           guestbook/home-compiled
-                           {:resources {:db ds}}
-                           {}&#41;&#93;
+        result &#40;myc/run-compiled
+                 guestbook/home-compiled
+                 {:db ds}
+                 {}&#41;&#93;
     &#40;is &#40;= 1 &#40;count &#40;:messages result&#41;&#41;&#41;&#41;
     &#40;is &#40;= &quot;Test User&quot; &#40;:name &#40;first &#40;:messages result&#41;&#41;&#41;&#41;&#41;
     &#40;is &#40;string? &#40;:html result&#41;&#41;&#41;&#41;&#41;
@@ -359,9 +363,8 @@ org.xerial/sqlite-jdbc            {:mvn/version &quot;3.45.3.0&quot;}
                 {:git/tag &quot;v0.10.5&quot; :git/sha &quot;2a21b7a&quot;}}
         :ns-default build}
 </code></pre><p>Then build and run:</p><pre><code>clj -T:build uber
-export JDBC&#95;URL=&quot;jdbc:sqlite:guestbook.db&quot;
 java -jar target/guestbook-standalone.jar
-</code></pre><hr/><p>Complete source for this tutorial is available in the <a href='https://github.com/mycelium-clj/mycelium-web-template'>mycelium-web-template</a> repository, which serves as the base for generated projects.</p>
+</code></pre><p>By default, the production build uses <code>jdbc:sqlite:guestbook.db</code>. You can override this by setting the <code>JDBC&#95;URL</code> environment variable.</p><hr/><p>The complete working source for this tutorial is available in the <a href='https://github.com/mycelium-clj/mycelium/tree/main/examples/guestbook'>guestbook example</a>. The base project template used to generate new projects is in the <a href='https://github.com/mycelium-clj/mycelium-web-template'>mycelium-web-template</a> repository.</p>
       </div>
     </div>
   </div>

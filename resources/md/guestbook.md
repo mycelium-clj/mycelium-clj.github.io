@@ -266,7 +266,7 @@ Now add the database configuration to `resources/system.edn`:
 :db/connection
 {:jdbc-url #profile {:dev  "jdbc:sqlite:guestbook_dev.db"
                      :test "jdbc:sqlite:guestbook_test.db"
-                     :prod #env JDBC_URL}}
+                     :prod #or [#env JDBC_URL "jdbc:sqlite:guestbook.db"]}}
 ```
 
 Update the `:reitit.routes/pages` entry to reference the database:
@@ -334,14 +334,14 @@ Create the workflow at `src/clj/yourname/guestbook/workflows/guestbook.clj`:
             [yourname.guestbook.cells.guestbook]))
 
 (def home-def
-  {:cells    {:load   :guestbook/load-messages
+  {:cells    {:start  :guestbook/load-messages
               :render :page/render-guestbook}
-   :pipeline [:load :render]})
+   :pipeline [:start :render]})
 
 (def home-compiled (myc/pre-compile home-def))
 ```
 
-This defines a simple pipeline: load messages from the database, then render the page. The workflow is pre-compiled at namespace load time for optimal performance.
+This defines a simple pipeline: load messages from the database, then render the page. Note that the first cell in a pipeline must be named `:start` — this is how Mycelium determines the entry point. The workflow is pre-compiled at namespace load time for optimal performance.
 
 ### Adding Routes
 
@@ -502,12 +502,16 @@ Create a test at `test/clj/yourname/guestbook/guestbook_test.clj`:
             [next.jdbc.result-set :as rs]
             [mycelium.core :as myc]
             [yourname.guestbook.cells.guestbook]
-            [yourname.guestbook.workflows.guestbook :as guestbook]))
+            [yourname.guestbook.workflows.guestbook :as guestbook])
+  (:import [java.io File]))
 
 (defn test-db []
-  (let [ds (jdbc/get-datasource {:jdbcUrl "jdbc:sqlite::memory:"})]
+  (let [tmp  (File/createTempFile "guestbook-test" ".db")
+        path (.getAbsolutePath tmp)
+        ds   (jdbc/get-datasource {:jdbcUrl (str "jdbc:sqlite:" path)})]
+    (.deleteOnExit tmp)
     (jdbc/execute! ds
-      ["CREATE TABLE guestbook
+      ["CREATE TABLE IF NOT EXISTS guestbook
         (id INTEGER PRIMARY KEY AUTOINCREMENT,
          name VARCHAR(30),
          message VARCHAR(200),
@@ -519,10 +523,10 @@ Create a test at `test/clj/yourname/guestbook/guestbook_test.clj`:
         _  (jdbc/execute! ds
              ["INSERT INTO guestbook (name, message) VALUES (?, ?)"
               "Test User" "Hello World"])
-        {:keys [result]} (myc/run-compiled
-                           guestbook/home-compiled
-                           {:resources {:db ds}}
-                           {})]
+        result (myc/run-compiled
+                 guestbook/home-compiled
+                 {:db ds}
+                 {})]
     (is (= 1 (count (:messages result))))
     (is (= "Test User" (:name (first (:messages result)))))
     (is (string? (:html result)))))
@@ -581,10 +585,11 @@ Then build and run:
 
 ```
 clj -T:build uber
-export JDBC_URL="jdbc:sqlite:guestbook.db"
 java -jar target/guestbook-standalone.jar
 ```
 
+By default, the production build uses `jdbc:sqlite:guestbook.db`. You can override this by setting the `JDBC_URL` environment variable.
+
 ***
 
-Complete source for this tutorial is available in the [mycelium-web-template](https://github.com/mycelium-clj/mycelium-web-template) repository, which serves as the base for generated projects.
+The complete working source for this tutorial is available in the [guestbook example](https://github.com/mycelium-clj/mycelium/tree/main/examples/guestbook). The base project template used to generate new projects is in the [mycelium-web-template](https://github.com/mycelium-clj/mycelium-web-template) repository.
