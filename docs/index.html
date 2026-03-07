@@ -103,10 +103,9 @@
 </div>
 
 <div class="column-wrapper" id="easy-start">
-  <p>Using <a href="https://github.com/babashka/neil">neil</a> and <a href="https://clojure.org/guides/getting_started">Clojure tools</a>, getting started is as easy as:</p>
+  <p>Using <a href="https://clojure.org/guides/getting_started">Clojure tools</a>, getting started is as easy as:</p>
   <pre class="bash hljs">
-    <span class="prompt">$ </span><span class="cmd">brew install clojure/tools/clojure babashka/brew/neil</span>
-    <span class="prompt">$ </span><span class="cmd">neil new io.github.mycelium-clj/web yourname/guestbook</span>
+    <span class="prompt">$ </span><span class="cmd">clj -Tdeps-new create :template io.github.mycelium-clj/mycelium-web-template :name yourname/guestbook</span>
   </pre>
 </div>
 

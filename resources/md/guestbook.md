@@ -35,21 +35,13 @@ chmod +x posix-install.sh
 sudo ./posix-install.sh
 ```
 
-For both macOS and Linux, you will also need [neil](https://github.com/babashka/neil) to generate new projects:
-
-```
-brew install babashka/brew/neil
-```
-
-Alternatively, you can use [deps-new](https://github.com/seancorfield/deps-new) directly.
-
 ### Creating a new application
 
 Once you have the Clojure CLI installed, you can run the following commands in your terminal to
 initialize your application:
 
 ```
-neil new io.github.mycelium-clj/web yourname/guestbook
+clj -Tdeps-new create :template io.github.mycelium-clj/mycelium-web-template :name yourname/guestbook
 cd guestbook
 ```
 

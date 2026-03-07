@@ -66,8 +66,7 @@
 </code></pre><p>Linux</p><pre><code>curl -L -O https://github.com/clojure/brew-install/releases/latest/download/posix-install.sh
 chmod +x posix-install.sh
 sudo ./posix-install.sh
-</code></pre><p>For both macOS and Linux, you will also need <a href='https://github.com/babashka/neil'>neil</a> to generate new projects:</p><pre><code>brew install babashka/brew/neil
-</code></pre><p>Alternatively, you can use <a href='https://github.com/seancorfield/deps-new'>deps-new</a> directly.</p><h3 id="creating&#95;a&#95;new&#95;application">Creating a new application</h3><p>Once you have the Clojure CLI installed, you can run the following commands in your terminal to initialize your application:</p><pre><code>neil new io.github.mycelium-clj/web yourname/guestbook
+</code></pre><h3 id="creating&#95;a&#95;new&#95;application">Creating a new application</h3><p>Once you have the Clojure CLI installed, you can run the following commands in your terminal to initialize your application:</p><pre><code>clj -Tdeps-new create :template io.github.mycelium-clj/mycelium-web-template :name yourname/guestbook
 cd guestbook
 </code></pre><p>The above will create a new project, named <code>yourname/guestbook</code>, based on the Mycelium web template.</p><h3 id="anatomy&#95;of&#95;a&#95;mycelium&#95;application">Anatomy of a Mycelium application</h3><p>The newly created application has the following structure:</p><pre><code>guestbook/
 ├── deps.edn
