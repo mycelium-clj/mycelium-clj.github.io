@@ -71,7 +71,15 @@
 ;; Dispatch predicates choose the route:
 :dispatches {:fraud &#91;&#91;:approved &#40;fn &#91;d&#93; &#40;not= :reject &#40;:fraud-status d&#41;&#41;&#41;&#93;
                      &#91;:reject   &#40;fn &#91;d&#93; &#40;= :reject &#40;:fraud-status d&#41;&#41;&#41;&#93;&#93;}
-</code></pre><p><strong>Joins declare parallelism.</strong> When cells don't depend on each other's output, declare them as a join. Each member receives the same input snapshot and produces non-overlapping output keys. The framework runs them concurrently and merges the results:</p><pre><code class="clojure">:joins {:fees {:cells &#91;:calc-tax :calc-shipping :calc-gift-wrap&#93; :strategy :parallel}}
+</code></pre><p><strong>Errors are data, not exceptions.</strong> Expected error conditions (validation failures, business rule violations, declined payments) should be represented by setting a key on the data map, not by throwing exceptions. The workflow then routes these states via dispatch predicates to the appropriate handler cell:</p><pre><code class="clojure">;; The payment cell sets an error key instead of throwing:
+&#40;fn &#91;resources data&#93;
+  &#40;let &#91;result &#40;charge-card resources &#40;:card data&#41; &#40;:total data&#41;&#41;&#93;
+    &#40;assoc data :payment-status &#40;if &#40;:success result&#41; :approved :declined&#41;&#41;&#41;&#41;
+
+;; The workflow routes on that key:
+:dispatches {:payment &#91;&#91;:approved &#40;fn &#91;d&#93; &#40;= :approved &#40;:payment-status d&#41;&#41;&#41;&#93;
+                       &#91;:declined &#40;fn &#91;d&#93; &#40;= :declined &#40;:payment-status d&#41;&#41;&#41;&#93;&#93;}
+</code></pre><p>This keeps the graph's control flow explicit and visible in the manifest. Every possible outcome has a named edge you can see and test. Reserve exceptions for truly unexpected failures (IO errors, connection drops, out of memory) &ndash; things that represent broken infrastructure, not business outcomes.</p><p><strong>Joins declare parallelism.</strong> When cells don't depend on each other's output, declare them as a join. Each member receives the same input snapshot and produces non-overlapping output keys. The framework runs them concurrently and merges the results:</p><pre><code class="clojure">:joins {:fees {:cells &#91;:calc-tax :calc-shipping :calc-gift-wrap&#93; :strategy :parallel}}
 </code></pre><h3 id="structuring&#95;a&#95;solution">Structuring a Solution</h3><p>Given a problem like "process an order", think of it as a state machine:</p><pre><code>&#91;expand items&#93; -&gt; &#91;apply discounts&#93; -&gt; &#91;compute subtotal&#93;
     -&gt; &#91;calc tax | calc shipping | calc gift-wrap&#93;  &#40;parallel join&#41;
     -&gt; &#91;compute total&#93; -&gt; &#91;fraud check&#93;
