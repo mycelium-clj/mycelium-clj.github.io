@@ -42,7 +42,7 @@
 (defn get-headings [content]
   (reduce
     (fn [headings {:keys [tag attrs content] :as elm}]
-      (if (some #{tag} [:h1 :h2 :h3])
+      (if (and (some #{tag} [:h1 :h2 :h3]) (:id attrs))
         (conj headings elm)
         (if-let [more-headings (get-headings content)]
           (into headings more-headings)
@@ -51,10 +51,28 @@
 
 (defn make-links [headings]
   (when (not-empty headings)
-    (hiccup/html
-      [:ol.contents
-       (for [{{id :id} :attrs [title] :content} headings]
-         [:li [:a {:href (str "#" id)} title]])])))
+    (let [items
+          (loop [remaining headings
+                 result    []]
+            (if (empty? remaining)
+              result
+              (let [{:keys [tag attrs content]} (first remaining)
+                    {id :id} attrs
+                    [title]  content]
+                (if (= tag :h3)
+                  (let [sub-items  (take-while #(= :h3 (:tag %)) remaining)
+                        rest-items (drop (count sub-items) remaining)
+                        sub-links  (for [{{sid :id} :attrs [stitle] :content} sub-items]
+                                     [:li [:a {:href (str "#" sid)} stitle]])]
+                    (if (seq result)
+                      (recur rest-items
+                             (update result (dec (count result))
+                                     conj (into [:ol] sub-links)))
+                      (recur rest-items
+                             (into result sub-links))))
+                  (recur (rest remaining)
+                         (conj result [:li [:a {:href (str "#" id)} title]]))))))]
+      (hiccup/html (into [:ol.contents] items)))))
 
 (defn generate-toc [content]
   (when content

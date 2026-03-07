@@ -59,7 +59,7 @@
       <h1>Creating Cells</h1>
       
       <h2>Contents</h2>
-      <ol class="contents"><li><a href="#creating_cells">Creating Cells</a></li><li><a href="#cell_registration">Cell Registration</a></li><li><a href="#cell_spec_fields">Cell Spec Fields</a></li><li><a href="#handler_signature">Handler Signature</a></li><li><a href="#output_schema_formats">Output Schema Formats</a></li><li><a href="#rules">Rules</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li><li><a href="#common_patterns">Common Patterns</a></li><li><a href="#resource-dependent_cell">Resource-dependent cell</a></li><li><a href="#async_cell_(external_api_call)">Async cell (external API call)</a></li></ol>
+      <ol class="contents"><li><a href="#creating_cells">Creating Cells</a></li><li><a href="#cell_registration">Cell Registration</a></li><li><a href="#cell_spec_fields">Cell Spec Fields</a></li><li><a href="#handler_signature">Handler Signature</a></li><li><a href="#output_schema_formats">Output Schema Formats</a></li><li><a href="#rules">Rules</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li><li><a href="#common_patterns">Common Patterns</a><ol><li><a href="#resource-dependent_cell">Resource-dependent cell</a></li><li><a href="#async_cell_(external_api_call)">Async cell (external API call)</a></li></ol></li></ol>
       
       <div id="content">
         <h1 id="creating&#95;cells">Creating Cells</h1><p>Cells are the atomic units of Mycelium. Each cell is a pure function with explicit schema contracts.</p><h2 id="cell&#95;registration">Cell Registration</h2><p>Register cells via <code>defmethod</code> on the <code>cell/cell-spec</code> multimethod:</p><pre><code class="clojure">&#40;ns my-app.cells.auth

@@ -59,7 +59,7 @@
       <h1>System Compilation</h1>
       
       <h2>Contents</h2>
-      <ol class="contents"><li><a href="#system-level_compilation">System-Level Compilation</a></li><li><a href="#compiling_a_system">Compiling a System</a></li><li><a href="#system_structure">System Structure</a></li><li><a href="#query_functions">Query Functions</a></li><li><a href="#use_cases">Use Cases</a></li><li><a href="#startup_health_check">Startup health check</a></li><li><a href="#schema_drift_detection">Schema drift detection</a></li><li><a href="#dependency_analysis">Dependency analysis</a></li></ol>
+      <ol class="contents"><li><a href="#system-level_compilation">System-Level Compilation</a></li><li><a href="#compiling_a_system">Compiling a System</a></li><li><a href="#system_structure">System Structure</a></li><li><a href="#query_functions">Query Functions</a></li><li><a href="#use_cases">Use Cases</a><ol><li><a href="#startup_health_check">Startup health check</a></li><li><a href="#schema_drift_detection">Schema drift detection</a></li><li><a href="#dependency_analysis">Dependency analysis</a></li></ol></li></ol>
       
       <div id="content">
         <h1 id="system-level&#95;compilation">System-Level Compilation</h1><p>The system compilation module provides a bird's-eye view of all workflows in an application, enabling cross-workflow queries and conflict detection at startup.</p><h2 id="compiling&#95;a&#95;system">Compiling a System</h2><pre><code class="clojure">&#40;require '&#91;mycelium.core :as myc&#93;&#41;
