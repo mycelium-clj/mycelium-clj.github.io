@@ -1,6 +1,6 @@
 # Creating Cells
 
-Cells are the atomic units of Mycelium, analogous to microservices. Each cell represents a single step in a workflow and can perform IO and side effects. Cells have explicit schema contracts, and the state a cell returns is used by the workflow engine to decide which cell to run next.
+Cells are the atomic units of Mycelium. Each cell is a pure function with explicit schema contracts.
 
 ## Cell Registration
 

@@ -7,4 +7,5 @@
  ["workflow-fragments.md"     "Workflow Fragments"          "topic"]
  ["subworkflows.md"           "Subworkflows"                "topic"]
  ["system-compilation.md"     "System Compilation"          "topic"]
+ ["cookbook.md"                "Cookbook"                     "topic"]
  ["quick-reference.md"        "Quick Reference"             "topic"]]

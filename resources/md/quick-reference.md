@@ -150,7 +150,10 @@ mentally reconstruct the architecture from.
 {:pre      (fn [fsm-state resources] fsm-state)  ;; pre-interceptor for every state
  :post     (fn [fsm-state resources] fsm-state)  ;; post-interceptor for every state
  :on-error (fn [resources fsm-state] data)        ;; runs when FSM enters error state
- :on-end   (fn [resources fsm-state] data)}       ;; runs when FSM enters end state
+ :on-end   (fn [resources fsm-state] data)        ;; runs when FSM enters end state
+ :coerce?  true                                    ;; auto-coerce numeric types (int↔double)
+ :propagate-keys? false                             ;; disable auto key propagation (on by default)
+ :on-trace (fn [entry] ...)}                        ;; callback after each cell completes
 ```
 
 ## Accumulating Data Model
@@ -163,6 +166,13 @@ start → validate → fetch-profile → fetch-orders → render
 ```
 
 A cell can depend on data produced several steps earlier without special wiring — keys persist through intermediate cells. The schema chain validator walks each path and confirms required keys are available from upstream outputs.
+
+Key propagation is on by default — cells can return only new/changed keys and input keys are automatically merged into the output. This eliminates the `(assoc data ...)` boilerplate:
+
+```clojure
+;; Without propagation: (fn [_ data] (assoc data :tax (* (:subtotal data) 0.1)))
+;; With propagation:    (fn [_ data] {:tax (* (:subtotal data) 0.1)})
+```
 
 ## Cell Registration
 
@@ -822,7 +832,7 @@ Implement the protocol for your persistence backend (DB, Redis, etc.):
 |-----|-------------|
 | `:mycelium/trace` | Vector of execution trace entries (see Workflow Trace) |
 | `:mycelium/input-error` | Input schema validation failure (workflow didn't run) |
-| `:mycelium/schema-error` | Runtime schema violation details |
+| `:mycelium/schema-error` | Runtime schema violation details (includes `:failed-keys`, `:cell-path`, clean `:data`) |
 | `:mycelium/join-error` | Join node error details |
 | `:mycelium/timeout` | `true` when a cell exceeded its graph-level timeout |
 | `:mycelium/error` | Error group error details (`{:cell :name, :message "..."}`) |
@@ -831,3 +841,15 @@ Implement the protocol for your persistence backend (DB, Redis, etc.):
 | `:mycelium/halt` | Halt context (true or map) — present when workflow is halted |
 | `:mycelium/resume` | Resume state token — present when workflow is halted |
 | `:mycelium/session-id` | Store session ID — present when using `run-with-store`/`resume-with-store` on halt |
+
+### Unified Error Inspection
+
+Instead of checking individual keys, use `workflow-error` and `error?`:
+
+```clojure
+(myc/error? result)           ;; => true/false
+(myc/workflow-error result)   ;; => {:error-type :schema/output, :cell-id :app/step,
+                              ;;     :message "...", :details {...}} or nil
+```
+
+Error types: `:schema/input`, `:schema/output`, `:handler`, `:resilience/timeout`, `:resilience/circuit-open`, `:resilience/bulkhead-full`, `:resilience/rate-limited`, `:join`, `:timeout`, `:input`.
