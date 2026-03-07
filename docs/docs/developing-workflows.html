@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Developing Workflows</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#developing_workflows">Developing Workflows</a></li><li><a href="#"></a></li><li><a href="#1._decompose_the_problem_into_steps">1. Decompose the Problem into Steps</a></li><li><a href="#when_to_split_a_cell">When to Split a Cell</a></li><li><a href="#when_not_to_split">When NOT to Split</a></li><li><a href="#"></a></li><li><a href="#2._design_the_graph">2. Design the Graph</a></li><li><a href="#"></a></li><li><a href="#3._define_the_data_model">3. Define the Data Model</a></li><li><a href="#schema_design_principles">Schema Design Principles</a></li><li><a href="#"></a></li><li><a href="#4._implement_cells">4. Implement Cells</a></li><li><a href="#cell_structure">Cell Structure</a></li><li><a href="#"></a></li><li><a href="#5._test_each_cell_independently">5. Test Each Cell Independently</a></li><li><a href="#what_to_test_in_a_cell">What to Test in a Cell</a></li><li><a href="#cell_testing_checklist">Cell Testing Checklist</a></li><li><a href="#"></a></li><li><a href="#6._test_the_workflow">6. Test the Workflow</a></li><li><a href="#path-based_testing">Path-Based Testing</a></li><li><a href="#trace_verification">Trace Verification</a></li><li><a href="#error_handling_tests">Error Handling Tests</a></li><li><a href="#workflow_testing_checklist">Workflow Testing Checklist</a></li><li><a href="#"></a></li><li><a href="#7._iterate_and_refine">7. Iterate and Refine</a></li><li><a href="#use_dev_tools">Use Dev Tools</a></li><li><a href="#extract_subworkflows">Extract Subworkflows</a></li><li><a href="#add_resilience_and_timeouts">Add Resilience and Timeouts</a></li><li><a href="#add_constraints">Add Constraints</a></li><li><a href="#"></a></li><li><a href="#summary">Summary</a></li></ol>
+      
+      <div id="content">
+        <h1 id="developing&#95;workflows">Developing Workflows</h1><p>A practical guide to going from a problem statement to a working, tested Mycelium workflow. This document walks through the full development process using a loan application as a running example.<h2></h2></p><h2 id="1.&#95;decompose&#95;the&#95;problem&#95;into&#95;steps">1. Decompose the Problem into Steps</h2><p>Start by listing the discrete operations your system must perform. Each operation becomes a cell. A cell does <strong>one thing well</strong> — if you find yourself describing a cell with "and", split it.</p><p><strong>Problem:</strong> Process a loan application. Validate the input, assess credit risk, decide eligibility, handle approved/rejected/review outcomes, log the decision, and notify the applicant.</p><p>Break it down:</p><pre><code>1. Validate the application &#40;are required fields present and valid?&#41;
+2. Look up credit history &#40;external data source&#41;
+3. Calculate a credit score &#40;pure computation&#41;
+4. Classify risk level &#40;pure computation&#41;
+5. Decide eligibility &#40;routing logic: approve, reject, or review&#41;
+6. Auto-approve &#40;set status, calculate interest rate&#41;
+7. Auto-reject &#40;set status and reason&#41;
+8. Queue for review &#40;set status and review queue&#41;
+9. Log to audit trail &#40;cross-cutting, shared across outcomes&#41;
+10. Send notification &#40;format and deliver&#41;
+</code></pre><p>Each line is a single responsibility. "Look up credit history" does not also calculate a score. "Decide eligibility" does not also approve the loan — it sets a routing key and lets the graph dispatch.</p><h3 id="when&#95;to&#95;split&#95;a&#95;cell">When to Split a Cell</h3><p>Split when a cell:</p><ul><li>Has two logical phases (fetch then transform)</li><li>Produces output for different consumers (one key for routing, another for display)</li><li>Could fail independently (network call vs. local computation)</li><li>Contains a conditional that could be a graph branch</li></ul><h3 id="when&#95;not&#95;to&#95;split">When NOT to Split</h3><p>Keep together when:</p><ul><li>The logic is a single expression with no meaningful intermediate state</li><li>Splitting would create cells with trivial schemas that add noise</li><li>The operations are tightly coupled and always run together<h2></h2></li></ul><h2 id="2.&#95;design&#95;the&#95;graph">2. Design the Graph</h2><p>Lay out how cells connect. Think in terms of edges (what follows what), branches (what decides the route), and joins (what runs in parallel).</p><pre><code>&#91;validate&#93; ──valid──&gt; &#91;credit-assessment&#93; ──success──&gt; &#91;eligibility&#93;
+     │                                                      │
+     └──invalid──&gt; END                           ┌──approve─┤──reject──┐──review──┐
+                                                 v          v          v
+                                           &#91;auto-approve&#93; &#91;auto-reject&#93; &#91;queue-review&#93;
+                                                 │          │          │
+                                                 └────┬─────┘──────────┘
+                                                      v
+                                                 &#91;audit-log&#93; ──&gt; &#91;send-notification&#93; ──&gt; END
+</code></pre><p>Identify the graph primitives:</p><ul><li><strong>Linear sequences:</strong> validate -> credit-assessment, audit-log -> send-notification</li><li><strong>Branches:</strong> eligibility dispatches to one of three outcome cells</li><li><strong>Convergence:</strong> all three outcomes flow into audit-log</li><li><strong>Joins:</strong> steps 2-4 (credit lookup, score, classify) are a linear sub-pipeline that could be a subworkflow</li></ul><p>Write the structure as a workflow definition before implementing any cells:</p><pre><code class="clojure">&#40;def loan-workflow
+  {:cells
+   {:start             :loan/validate-application
+    :credit-assessment :loan/credit-assessment    ;; subworkflow
+    :eligibility       :loan/eligibility-decision
+    :auto-approve      :loan/auto-approve
+    :auto-reject       :loan/auto-reject
+    :queue-review      :loan/queue-for-review
+    :audit-log         :loan/audit-log
+    :send-notification :loan/send-notification}
+
+   :edges
+   {:start             {:valid :credit-assessment, :invalid :end}
+    :credit-assessment {:success :eligibility, :failure :end}
+    :eligibility       {:approve :auto-approve, :reject :auto-reject, :review :queue-review}
+    :auto-approve      :audit-log
+    :auto-reject       :audit-log
+    :queue-review      :audit-log
+    :audit-log         :send-notification
+    :send-notification :end}
+
+   :dispatches
+   {:start       &#91;&#91;:valid   &#40;fn &#91;d&#93; &#40;= :valid &#40;:validation-status d&#41;&#41;&#41;&#93;
+                  &#91;:invalid &#40;fn &#91;d&#93; &#40;= :invalid &#40;:validation-status d&#41;&#41;&#41;&#93;&#93;
+    :eligibility &#91;&#91;:approve &#40;fn &#91;d&#93; &#40;= :approve &#40;:decision d&#41;&#41;&#41;&#93;
+                  &#91;:reject  &#40;fn &#91;d&#93; &#40;= :reject &#40;:decision d&#41;&#41;&#41;&#93;
+                  &#91;:review  &#40;fn &#91;d&#93; &#40;= :review &#40;:decision d&#41;&#41;&#41;&#93;&#93;}}&#41;
+</code></pre><p>This definition will compile (and validate) before any cell is implemented. If you misspell an edge target or reference a nonexistent cell, compilation catches it immediately.<h2></h2></p><h2 id="3.&#95;define&#95;the&#95;data&#95;model">3. Define the Data Model</h2><p>The data model is the set of keys that flow through the workflow. Each cell declares what it needs (input schema) and what it produces (output schema). Data accumulates — every cell receives all keys from every upstream cell.</p><p>Map out the keys:</p><table><thead><tr><th>Cell</th><th>Reads</th><th>Produces</th></tr></thead><tbody><tr><td>validate</td><td><code>:applicant-name</code>, <code>:income</code>, <code>:loan-amount</code></td><td><code>:validation-status</code>, <code>:validation-errors</code></td></tr><tr><td>credit-bureau-lookup</td><td><code>:applicant-name</code></td><td><code>:credit-history</code></td></tr><tr><td>calculate-score</td><td><code>:credit-history</code></td><td><code>:credit-score</code></td></tr><tr><td>classify-risk</td><td><code>:credit-score</code></td><td><code>:risk-level</code></td></tr><tr><td>eligibility-decision</td><td><code>:risk-level</code>, <code>:loan-amount</code></td><td><code>:decision</code></td></tr><tr><td>auto-approve</td><td><code>:credit-score</code></td><td><code>:application-status</code>, <code>:interest-rate</code>, <code>:decision-reason</code></td></tr><tr><td>auto-reject</td><td><code>:risk-level</code></td><td><code>:application-status</code>, <code>:decision-reason</code></td></tr><tr><td>queue-for-review</td><td><code>:risk-level</code>, <code>:loan-amount</code></td><td><code>:application-status</code>, <code>:review-queue</code>, <code>:decision-reason</code></td></tr><tr><td>audit-log</td><td><code>:applicant-name</code></td><td><code>:audit-trail</code></td></tr><tr><td>send-notification</td><td><code>:application-status</code>, <code>:applicant-name</code></td><td><code>:notification</code></td></tr></tbody></table><p>This table serves two purposes:</p><ol><li>It becomes the Malli schemas in cell specs</li><li>It lets you verify that every cell's input keys are available from upstream outputs</li></ol><p>With key propagation (on by default), cells only need to return new keys — input keys are automatically merged forward. This means your output schemas only declare what the cell adds, not everything downstream might need.</p><h3 id="schema&#95;design&#95;principles">Schema Design Principles</h3><p><strong>Be specific in schemas.</strong> Use enums for known value sets, not bare keywords:</p><pre><code class="clojure">;; Good: the schema documents the domain
+:output {:approve &#91;:map &#91;:decision &#91;:= :approve&#93;&#93;&#93;
+         :reject  &#91;:map &#91;:decision &#91;:= :reject&#93;&#93;&#93;
+         :review  &#91;:map &#91;:decision &#91;:= :review&#93;&#93;&#93;}
+
+;; Weak: tells you nothing about valid values
+:output &#91;:map &#91;:decision :keyword&#93;&#93;
+</code></pre><p><strong>Use per-transition output schemas</strong> when a cell branches. This lets the schema chain validator verify that each downstream path receives the right shape.</p><p><strong>Use open schemas (<code>:map</code>) for cells that receive external input</strong> (e.g., after halt/resume), since the schema chain can't track keys injected from outside.<h2></h2></p><h2 id="4.&#95;implement&#95;cells">4. Implement Cells</h2><p>Each cell is implemented independently. A cell needs only its own schema to be implemented correctly — you don't need to read any other cell's code.</p><h3 id="cell&#95;structure">Cell Structure</h3><p>Every cell follows the same pattern:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :loan/classify-risk &#91;&#95;&#93;
+  {:id      :loan/classify-risk
+   :handler &#40;fn &#91;&#95;resources data&#93;
+              &#40;let &#91;score &#40;:credit-score data&#41;&#93;
+                {:risk-level &#40;cond
+                               &#40;&gt;= score 720&#41; :low
+                               &#40;&gt;= score 620&#41; :medium
+                               :else          :high&#41;}&#41;&#41;
+   :schema  {:input  &#91;:map &#91;:credit-score :int&#93;&#93;
+             :output &#91;:map &#91;:risk-level &#91;:enum :low :medium :high&#93;&#93;&#93;}}&#41;
+</code></pre><p>Key principles:</p><p><strong>One thing well.</strong> This cell classifies risk. It doesn't also calculate the score or decide eligibility. Each cell is a single, testable transformation.</p><p><strong>Pure data in, data out.</strong> The handler receives <code>resources</code> and <code>data</code>, returns new keys. No global state, no side-channel communication between cells.</p><p><strong>Side effects through resources.</strong> When a cell needs a database or API, it receives it via the resources map:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :loan/credit-bureau-lookup &#91;&#95;&#93;
+  {:id       :loan/credit-bureau-lookup
+   :handler  &#40;fn &#91;{:keys &#91;credit-db&#93;} data&#93;
+               &#40;let &#91;history &#40;get credit-db &#40;:applicant-name data&#41;&#41;&#93;
+                 {:credit-history &#40;or history {:accounts 0 :late-payments 0
+                                               :bankruptcies 0 :years-of-history 0}&#41;}&#41;&#41;
+   :schema   {:input  &#91;:map &#91;:applicant-name :string&#93;&#93;
+              :output &#91;:map &#91;:credit-history &#91;:map
+                                              &#91;:accounts :int&#93;
+                                              &#91;:late-payments :int&#93;
+                                              &#91;:bankruptcies :int&#93;
+                                              &#91;:years-of-history :int&#93;&#93;&#93;&#93;}
+   :requires &#91;:credit-db&#93;}&#41;
+</code></pre><p>This keeps the cell testable — pass a mock <code>credit-db</code> in tests.</p><p><strong>Errors are data, not exceptions.</strong> When a cell encounters an expected failure (invalid input, resource not found), set a key on the data map and let the graph route it:</p><pre><code class="clojure">;; The cell sets :validation-status — it does NOT throw
+&#40;if &#40;valid? data&#41;
+  {:validation-status :valid}
+  {:validation-status :invalid
+   :validation-errors &#40;collect-errors data&#41;}&#41;
+</code></pre><p>Reserve exceptions for truly unexpected failures. Use error groups to catch those.<h2></h2></p><h2 id="5.&#95;test&#95;each&#95;cell&#95;independently">5. Test Each Cell Independently</h2><p>Test cells before wiring them into a workflow. Each cell is a pure function — give it input, check its output.</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+;; Basic: does the cell produce correct output?
+&#40;deftest classify-risk-test
+  &#40;let &#91;results &#40;dev/test-transitions :loan/classify-risk
+                  {:low    {:input {:credit-score 750}}
+                   :medium {:input {:credit-score 650}}
+                   :high   {:input {:credit-score 500}}}&#41;&#93;
+    &#40;is &#40;get-in results &#91;:low :pass?&#93;&#41;&#41;
+    &#40;is &#40;= :low &#40;get-in results &#91;:low :output :risk-level&#93;&#41;&#41;&#41;
+    &#40;is &#40;= :medium &#40;get-in results &#91;:medium :output :risk-level&#93;&#41;&#41;&#41;
+    &#40;is &#40;= :high &#40;get-in results &#91;:high :output :risk-level&#93;&#41;&#41;&#41;&#41;&#41;
+</code></pre><h3 id="what&#95;to&#95;test&#95;in&#95;a&#95;cell">What to Test in a Cell</h3><p><strong>Schema conformance.</strong> <code>dev/test-cell</code> validates output against the declared schema automatically. If <code>:pass?</code> is true, the output conforms.</p><p><strong>Dispatch routing.</strong> For cells with branching, verify the correct dispatch fires:</p><pre><code class="clojure">&#40;deftest eligibility-approve-test
+  &#40;let &#91;result &#40;dev/test-cell :loan/eligibility-decision
+                 {:input      {:risk-level :low :loan-amount 30000}
+                  :dispatches &#91;&#91;:approve &#40;fn &#91;d&#93; &#40;= :approve &#40;:decision d&#41;&#41;&#41;&#93;
+                               &#91;:reject  &#40;fn &#91;d&#93; &#40;= :reject &#40;:decision d&#41;&#41;&#41;&#93;
+                               &#91;:review  &#40;fn &#91;d&#93; &#40;= :review &#40;:decision d&#41;&#41;&#41;&#93;&#93;}&#41;&#93;
+    &#40;is &#40;:pass? result&#41;&#41;
+    &#40;is &#40;= :approve &#40;:matched-dispatch result&#41;&#41;&#41;&#41;&#41;
+</code></pre><p><strong>Edge cases and boundaries.</strong> Test threshold values, empty inputs, missing optional keys:</p><pre><code class="clojure">;; Score clamping
+&#40;deftest score-clamped-test
+  &#40;let &#91;result-low  &#40;dev/test-cell :loan/calculate-score
+                      {:input {:credit-history {:accounts 0 :late-payments 10
+                                                :bankruptcies 3 :years-of-history 0}}}&#41;
+        result-high &#40;dev/test-cell :loan/calculate-score
+                      {:input {:credit-history {:accounts 10 :late-payments 0
+                                                :bankruptcies 0 :years-of-history 20}}}&#41;&#93;
+    &#40;is &#40;= 300 &#40;get-in result-low &#91;:output :credit-score&#93;&#41;&#41;&#41;
+    &#40;is &#40;= 850 &#40;get-in result-high &#91;:output :credit-score&#93;&#41;&#41;&#41;&#41;&#41;
+</code></pre><p><strong>Resource-dependent cells.</strong> Pass mock resources:</p><pre><code class="clojure">&#40;deftest fetch-found-test
+  &#40;let &#91;store  &#40;atom {&quot;Alice&quot; {:application-status :approved}}&#41;
+        result &#40;dev/test-cell :loan/fetch-application
+                 {:input     {:applicant-name &quot;Alice&quot;}
+                  :resources {:app-store store}
+                  :dispatches &#91;&#91;:found &#40;fn &#91;d&#93; &#40;= :found &#40;:fetch-status d&#41;&#41;&#41;&#93;
+                               &#91;:not-found &#40;fn &#91;d&#93; &#40;= :not-found &#40;:fetch-status d&#41;&#41;&#41;&#93;&#93;}&#41;&#93;
+    &#40;is &#40;= :found &#40;:matched-dispatch result&#41;&#41;&#41;&#41;&#41;
+</code></pre><h3 id="cell&#95;testing&#95;checklist">Cell Testing Checklist</h3><p>For each cell, verify:</p><ul><li>Output conforms to declared schema (<code>:pass?</code> is true)</li><li>Correct dispatch fires for each scenario</li><li>Edge cases produce valid output (not exceptions)</li><li>Resources are used through the resources map, not hardcoded<h2></h2></li></ul><h2 id="6.&#95;test&#95;the&#95;workflow">6. Test the Workflow</h2><p>Once all cells pass individually, test the integrated workflow. Workflow tests verify that cells compose correctly — data flows through the graph, dispatches route to the right branches, and the final output has all expected keys.</p><h3 id="path-based&#95;testing">Path-Based Testing</h3><p>Test each distinct path through the graph:</p><pre><code class="clojure">;; Happy path: good credit, small loan -&gt; auto-approve
+&#40;deftest auto-approve-path-test
+  &#40;let &#91;result &#40;myc/run-compiled compiled-workflow
+                 {:credit-db credit-db, :app-store &#40;atom {}&#41;}
+                 {:applicant-name &quot;Alice&quot; :income 80000 :loan-amount 30000}&#41;&#93;
+    &#40;is &#40;= :approved &#40;:application-status result&#41;&#41;&#41;
+    &#40;is &#40;number? &#40;:interest-rate result&#41;&#41;&#41;
+    &#40;is &#40;some? &#40;:notification result&#41;&#41;&#41;
+    &#40;is &#40;seq &#40;:audit-trail result&#41;&#41;&#41;&#41;&#41;
+
+;; Bad credit -&gt; auto-reject
+&#40;deftest auto-reject-path-test
+  &#40;let &#91;result &#40;myc/run-compiled compiled-workflow
+                 {:credit-db credit-db, :app-store &#40;atom {}&#41;}
+                 {:applicant-name &quot;Carol&quot; :income 40000 :loan-amount 15000}&#41;&#93;
+    &#40;is &#40;= :rejected &#40;:application-status result&#41;&#41;&#41;
+    &#40;is &#40;string? &#40;:decision-reason result&#41;&#41;&#41;&#41;&#41;
+
+;; Early exit: invalid input
+&#40;deftest invalid-application-test
+  &#40;let &#91;result &#40;myc/run-compiled compiled-workflow
+                 {:credit-db credit-db, :app-store &#40;atom {}&#41;}
+                 {:applicant-name &quot;&quot; :income nil :loan-amount nil}&#41;&#93;
+    &#40;is &#40;= :invalid &#40;:validation-status result&#41;&#41;&#41;
+    &#40;is &#40;nil? &#40;:credit-score result&#41;&#41;&#41;      ;; never reached credit assessment
+    &#40;is &#40;nil? &#40;:notification result&#41;&#41;&#41;&#41;&#41;    ;; never reached notification
+</code></pre><h3 id="trace&#95;verification">Trace Verification</h3><p>Use the execution trace to verify the path taken:</p><pre><code class="clojure">&#40;deftest trace-reject-path-test
+  &#40;let &#91;result   &#40;myc/run-compiled compiled-workflow resources data&#41;
+        trace    &#40;:mycelium/trace result&#41;
+        cell-ids &#40;set &#40;map :cell-id trace&#41;&#41;&#93;
+    ;; Reject path should hit auto-reject, not auto-approve
+    &#40;is &#40;contains? cell-ids :loan/auto-reject&#41;&#41;
+    &#40;is &#40;not &#40;contains? cell-ids :loan/auto-approve&#41;&#41;&#41;
+    &#40;is &#40;not &#40;contains? cell-ids :loan/queue-for-review&#41;&#41;&#41;&#41;&#41;
+</code></pre><h3 id="error&#95;handling&#95;tests">Error Handling Tests</h3><p>Verify that errors are caught and routed correctly:</p><pre><code class="clojure">&#40;deftest error-handling-test
+  &#40;let &#91;result &#40;myc/run-compiled compiled-workflow resources bad-data&#41;&#93;
+    &#40;if &#40;myc/error? result&#41;
+      &#40;let &#91;{:keys &#91;error-type message&#93;} &#40;myc/workflow-error result&#41;&#93;
+        &#40;is &#40;#{:schema/input :handler} error-type&#41;&#41;&#41;
+      ;; Or verify the workflow handled it gracefully via dispatch
+      &#40;is &#40;= :invalid &#40;:validation-status result&#41;&#41;&#41;&#41;&#41;&#41;
+</code></pre><h3 id="workflow&#95;testing&#95;checklist">Workflow Testing Checklist</h3><ul><li>Every path from <code>:start</code> to <code>:end</code> has at least one test</li><li>Early exits (validation failure, not-found) verify that downstream cells didn't run</li><li>Trace confirms the expected sequence of cells</li><li>Error paths produce meaningful output<h2></h2></li></ul><h2 id="7.&#95;iterate&#95;and&#95;refine">7. Iterate and Refine</h2><h3 id="use&#95;dev&#95;tools">Use Dev Tools</h3><pre><code class="clojure">;; Enumerate all possible paths
+&#40;dev/enumerate-paths workflow-def&#41;
+
+;; See accumulated schema at each cell
+&#40;dev/infer-workflow-schema workflow-def&#41;
+
+;; Check for unreachable cells or cycles
+&#40;dev/analyze-workflow workflow-def&#41;
+
+;; Debug a run in the REPL
+&#40;myc/run-workflow wf resources data {:on-trace &#40;dev/trace-logger&#41;}&#41;
+</code></pre><h3 id="extract&#95;subworkflows">Extract Subworkflows</h3><p>When a group of cells forms a cohesive sub-process, extract it as a subworkflow. In the loan example, credit assessment (lookup -> score -> classify) is a natural subworkflow:</p><pre><code class="clojure">&#40;def credit-assessment-workflow
+  {:cells      {:start         :loan/credit-bureau-lookup
+                :calc-score    :loan/calculate-score
+                :classify-risk :loan/classify-risk}
+   :edges      {:start :calc-score, :calc-score :classify-risk, :classify-risk :end}
+   :dispatches {}}&#41;
+
+&#40;compose/register-workflow-cell!
+  :loan/credit-assessment
+  credit-assessment-workflow
+  {:input  &#91;:map &#91;:applicant-name :string&#93;&#93;
+   :output &#91;:map &#91;:credit-score :int&#93; &#91;:risk-level &#91;:enum :low :medium :high&#93;&#93;&#93;}&#41;
+</code></pre><p>Now the parent workflow uses <code>:loan/credit-assessment</code> as a single cell. The sub-process can be tested independently and reused in other workflows.</p><h3 id="add&#95;resilience&#95;and&#95;timeouts">Add Resilience and Timeouts</h3><p>Once the core logic works, layer on operational concerns:</p><pre><code class="clojure">;; Add timeout for external credit bureau lookup
+:timeouts {:credit-assessment 10000}
+
+;; Add resilience for flaky external APIs
+:resilience {:credit-assessment {:retry {:max-attempts 3 :wait-ms 500}
+                                  :circuit-breaker {:failure-rate 50
+                                                    :minimum-calls 10}}}
+</code></pre><p>These are declared in the workflow definition — cell handlers stay focused on domain logic.</p><h3 id="add&#95;constraints">Add Constraints</h3><p>Declare structural invariants once the graph is stable:</p><pre><code class="clojure">:constraints &#91;{:type :must-follow :if :eligibility :then :audit-log}
+              {:type :never-together :cells &#91;:auto-approve :auto-reject&#93;}
+              {:type :always-reachable :cell :audit-log}&#93;
+</code></pre><h2></h2><h2 id="summary">Summary</h2><p>The development process follows a consistent pattern:</p><ol><li><strong>Decompose</strong> — Break the problem into single-responsibility steps</li><li><strong>Graph</strong> — Connect the steps with edges, branches, and joins</li><li><strong>Model</strong> — Define the data keys each step reads and produces</li><li><strong>Implement</strong> — Write each cell as a pure function with schema contracts</li><li><strong>Unit test</strong> — Test each cell in isolation with <code>dev/test-cell</code></li><li><strong>Integrate</strong> — Test the full workflow path by path</li><li><strong>Refine</strong> — Extract subworkflows, add resilience, add constraints</li></ol><p>The manifest is the architecture. Write it first. Once it compiles, each cell can be implemented and tested independently. When all cells pass, the workflow works — the framework guarantees that data flows correctly through the graph.</p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/developing-workflows.html">
+            Developing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/cookbook.html">
+            Cookbook
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>
