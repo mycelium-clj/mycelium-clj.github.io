@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Cookbook</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#mycelium_cookbook">Mycelium Cookbook</a></li><li><a href="#"></a></li><li><a href="#build_a_linear_pipeline">Build a Linear Pipeline</a></li><li><a href="#"></a></li><li><a href="#add_branching_logic">Add Branching Logic</a></li><li><a href="#"></a></li><li><a href="#add_a_catch-all_fallback">Add a Catch-All Fallback</a></li><li><a href="#"></a></li><li><a href="#run_steps_in_parallel_(fork-join)">Run Steps in Parallel (Fork-Join)</a></li><li><a href="#"></a></li><li><a href="#handle_errors_across_multiple_cells">Handle Errors Across Multiple Cells</a></li><li><a href="#"></a></li><li><a href="#add_a_human_approval_gate_(halt/resume)">Add a Human Approval Gate (Halt/Resume)</a></li><li><a href="#persisting_halted_state_across_sessions">Persisting Halted State Across Sessions</a></li><li><a href="#"></a></li><li><a href="#wrap_a_workflow_as_a_reusable_cell">Wrap a Workflow as a Reusable Cell</a></li><li><a href="#"></a></li><li><a href="#protect_against_external_service_failures">Protect Against External Service Failures</a></li><li><a href="#"></a></li><li><a href="#add_a_timeout_to_a_cell">Add a Timeout to a Cell</a></li><li><a href="#"></a></li><li><a href="#inspect_errors_uniformly">Inspect Errors Uniformly</a></li><li><a href="#"></a></li><li><a href="#write_a_cell">Write a Cell</a></li><li><a href="#async_cell">Async Cell</a></li><li><a href="#parameterized_cell">Parameterized Cell</a></li><li><a href="#"></a></li><li><a href="#test_a_cell_in_isolation">Test a Cell in Isolation</a></li><li><a href="#"></a></li><li><a href="#debug_workflow_execution">Debug Workflow Execution</a></li><li><a href="#live_tracing_(repl)">Live Tracing (REPL)</a></li><li><a href="#post-run_trace_inspection">Post-Run Trace Inspection</a></li><li><a href="#"></a></li><li><a href="#handle_type_mismatches_between_cells">Handle Type Mismatches Between Cells</a></li><li><a href="#"></a></li><li><a href="#serve_a_workflow_as_a_ring_handler">Serve a Workflow as a Ring Handler</a></li><li><a href="#"></a></li><li><a href="#validate_workflow_structure_at_compile_time">Validate Workflow Structure at Compile Time</a></li><li><a href="#"></a></li><li><a href="#share_workflow_logic_with_fragments">Share Workflow Logic with Fragments</a></li><li><a href="#"></a></li><li><a href="#analyze_a_workflow_before_running_it">Analyze a Workflow Before Running It</a></li><li><a href="#"></a></li><li><a href="#pre-compile_for_production">Pre-Compile for Production</a></li><li><a href="#"></a></li><li><a href="#use_interceptors_for_cross-cutting_concerns">Use Interceptors for Cross-Cutting Concerns</a></li><li><a href="#"></a></li><li><a href="#generate_llm_briefs_for_agent_orchestration">Generate LLM Briefs for Agent Orchestration</a></li><li><a href="#"></a></li><li><a href="#common_patterns">Common Patterns</a></li><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#manifest-first_design">Manifest-First Design</a></li><li><a href="#cell_output_with_key_propagation">Cell Output With Key Propagation</a></li></ol>
+      
+      <div id="content">
+        <h1 id="mycelium&#95;cookbook">Mycelium Cookbook</h1><p>Problem-oriented patterns for common workflow tasks. Each recipe shows the problem, the idiomatic solution, and the key details.<h2></h2></p><h2 id="build&#95;a&#95;linear&#95;pipeline">Build a Linear Pipeline</h2><p><strong>Problem:</strong> You have a sequence of steps that run one after another with no branching.</p><pre><code class="clojure">;; Use :pipeline shorthand — no :edges or :dispatches needed
+&#40;def workflow
+  {:cells    {:start   :app/validate
+              :process :app/transform
+              :render  :app/format}
+   :pipeline &#91;:start :process :render&#93;}&#41;
+
+&#40;def compiled &#40;myc/pre-compile workflow&#41;&#41;
+&#40;myc/run-compiled compiled {} {:input &quot;data&quot;}&#41;
+</code></pre><p><code>:pipeline</code> expands to <code>:edges {:start :process, :process :render, :render :end}</code> with no dispatch predicates. Mutually exclusive with <code>:edges</code>, <code>:dispatches</code>, <code>:fragments</code>, <code>:joins</code>.<h2></h2></p><h2 id="add&#95;branching&#95;logic">Add Branching Logic</h2><p><strong>Problem:</strong> A step needs to route to different cells based on its output.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start :order/check-fraud
+           :ok    :order/process
+           :flag  :order/manual-review}
+
+   :edges {:start {:clean :ok, :suspicious :flag}
+           :ok    :end
+           :flag  :end}
+
+   :dispatches {:start &#91;&#91;:clean      &#40;fn &#91;d&#93; &#40;= :ok &#40;:fraud-status d&#41;&#41;&#41;&#93;
+                        &#91;:suspicious &#40;fn &#91;d&#93; &#40;= :flagged &#40;:fraud-status d&#41;&#41;&#41;&#93;&#93;}}&#41;
+</code></pre><p>The cell handler sets a key (<code>:fraud-status</code>). Dispatch predicates examine that key and pick the edge. Handlers compute data; dispatches decide the route.</p><p>For per-transition output schemas, use a map instead of a single schema:</p><pre><code class="clojure">:schema {:input  &#91;:map &#91;:total :double&#93;&#93;
+         :output {:clean      &#91;:map &#91;:fraud-status &#91;:= :ok&#93;&#93;&#93;
+                  :suspicious &#91;:map &#91;:fraud-status &#91;:= :flagged&#93;&#93;&#93;}}
+</code></pre><h2></h2><h2 id="add&#95;a&#95;catch-all&#95;fallback">Add a Catch-All Fallback</h2><p><strong>Problem:</strong> You want a safety net when no dispatch predicate matches.</p><pre><code class="clojure">{:edges {:start {:success :process, :default :error-handler}
+         :process :end, :error-handler :end}
+ :dispatches {:start &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;&#93;}}
+;; :default auto-generates &#40;constantly true&#41; as the last predicate
+;; No need to add &#91;:default ...&#93; to :dispatches
+</code></pre><p><code>:default</code> is always evaluated last, even if listed first. It must not be the only edge (use an unconditional edge instead).<h2></h2></p><h2 id="run&#95;steps&#95;in&#95;parallel&#95;(fork-join)">Run Steps in Parallel (Fork-Join)</h2><p><strong>Problem:</strong> Multiple independent operations can run concurrently.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start    :order/validate
+           :tax      :order/calc-tax       ;; join member
+           :shipping :order/calc-shipping   ;; join member
+           :total    :order/compute-total
+           :err      :order/show-error}
+
+   :joins {:fees {:cells &#91;:tax :shipping&#93; :strategy :parallel}}
+
+   :edges {:start {:ok :fees, :invalid :err}
+           :fees  {:done :total, :failure :err}
+           :total :end, :err :end}
+
+   :dispatches {:start &#91;&#91;:ok      &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;
+                        &#91;:invalid &#40;fn &#91;d&#93; &#40;not &#40;:valid d&#41;&#41;&#41;&#93;&#93;}}&#41;
+</code></pre><p>Join members exist in <code>:cells</code> but have <strong>no entries in <code>:edges</code></strong>. Each member gets the same input snapshot. Output keys must not overlap (or provide <code>:merge-fn</code>). Results are merged into data, and <code>:done</code>/<code>:failure</code> dispatches are auto-generated.<h2></h2></p><h2 id="handle&#95;errors&#95;across&#95;multiple&#95;cells">Handle Errors Across Multiple Cells</h2><p><strong>Problem:</strong> Several cells can fail the same way and should share one error handler.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start     :data/fetch
+           :transform :data/transform
+           :render    :data/render
+           :err       :data/handle-error}
+
+   :edges {:start     :transform
+           :transform :render
+           :render    :end
+           :err       :end}
+
+   :error-groups {:pipeline {:cells &#91;:start :transform :render&#93;
+                              :on-error :err}}}&#41;
+</code></pre><p>At compile time, the framework expands unconditional edges to include <code>:on-error</code> targets and injects dispatch predicates. If any grouped cell throws, <code>:mycelium/error</code> is set on data with <code>{:cell :cell-name, :message &quot;...&quot;}</code> and the error handler runs.</p><p>The error handler cell receives the full data map including <code>:mycelium/error</code>:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :data/handle-error &#91;&#95;&#93;
+  {:id      :data/handle-error
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                {:error-page &#40;str &quot;Failed at &quot; cell &quot;: &quot; message&#41;}&#41;&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}}&#41;
+</code></pre><h2></h2><h2 id="add&#95;a&#95;human&#95;approval&#95;gate&#95;(halt/resume)">Add a Human Approval Gate (Halt/Resume)</h2><p><strong>Problem:</strong> A workflow must pause for human review before continuing.</p><pre><code class="clojure">;; 1. Cell signals halt
+&#40;defmethod cell/cell-spec :review/request &#91;&#95;&#93;
+  {:id      :review/request
+   :handler &#40;fn &#91;&#95; data&#93;
+              {:mycelium/halt {:reason :needs-approval
+                               :item   &#40;:item-id data&#41;}}&#41;
+   :schema  {:input &#91;:map &#91;:item-id :string&#93;&#93; :output &#91;:map&#93;}}&#41;
+
+;; 2. Run workflow — it halts
+&#40;def compiled &#40;myc/pre-compile workflow&#41;&#41;
+&#40;def halted &#40;myc/run-compiled compiled resources {:item-id &quot;X&quot;}&#41;&#41;
+;; halted contains :mycelium/halt and :mycelium/resume
+
+;; 3. Resume with human input
+&#40;def result &#40;myc/resume-compiled compiled resources halted
+              {:approved true, :reviewer &quot;alice&quot;}&#41;&#41;
+;; :approved and :reviewer are now in the data map
+</code></pre><p><code>:mycelium/halt</code> can be <code>true</code> or a map with context. Data accumulates across halt/resume. Trace is continuous. A workflow can halt and resume multiple times.</p><h3 id="persisting&#95;halted&#95;state&#95;across&#95;sessions">Persisting Halted State Across Sessions</h3><pre><code class="clojure">&#40;require '&#91;mycelium.store :as store&#93;&#41;
+
+&#40;def s &#40;store/memory-store&#41;&#41;
+
+;; Run — auto-persists on halt
+&#40;def halted &#40;store/run-with-store compiled resources data s&#41;&#41;
+
+;; Resume by session ID &#40;e.g., from a database later&#41;
+&#40;store/resume-with-store compiled resources
+  &#40;:mycelium/session-id halted&#41; s {:approved true}&#41;
+</code></pre><p>Implement <code>store/WorkflowStore</code> protocol for production persistence (DB, Redis, etc.).<h2></h2></p><h2 id="wrap&#95;a&#95;workflow&#95;as&#95;a&#95;reusable&#95;cell">Wrap a Workflow as a Reusable Cell</h2><p><strong>Problem:</strong> A sub-process should be embedded as a single step in a parent workflow.</p><pre><code class="clojure">&#40;require '&#91;mycelium.compose :as compose&#93;&#41;
+
+;; Define the sub-workflow
+&#40;def credit-check-wf
+  {:cells {:start  :credit/lookup
+           :score  :credit/calculate
+           :classify :credit/classify-risk}
+   :edges {:start :score, :score :classify, :classify :end}
+   :dispatches {}}&#41;
+
+;; Register it as a cell
+&#40;compose/register-workflow-cell!
+  :credit/assessment
+  credit-check-wf
+  {:input  &#91;:map &#91;:applicant-name :string&#93;&#93;
+   :output &#91;:map &#91;:credit-score :int&#93; &#91;:risk-level &#91;:enum :low :medium :high&#93;&#93;&#93;}&#41;
+
+;; Use it like any other cell
+&#40;def parent-wf
+  {:cells {:start   :app/validate
+           :credit  :credit/assessment   ;; &lt;-- composed workflow
+           :decide  :app/eligibility}
+   :edges {:start :credit
+           :credit {:success :decide, :failure :end}
+           :decide :end}
+   :dispatches {:credit &#91;&#91;:success &#40;fn &#91;d&#93; &#40;nil? &#40;:mycelium/error d&#41;&#41;&#41;&#93;
+                         &#91;:failure &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/error d&#41;&#41;&#41;&#93;&#93;}}&#41;
+</code></pre><p><code>:success</code>/<code>:failure</code> dispatches are auto-generated based on <code>:mycelium/error</code>. Child trace is available in <code>:mycelium/child-trace</code>.<h2></h2></p><h2 id="protect&#95;against&#95;external&#95;service&#95;failures">Protect Against External Service Failures</h2><p><strong>Problem:</strong> An API call might be slow, fail repeatedly, or overload a downstream service.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start    :api/call-external
+           :ok       :app/process-result
+           :fallback :app/use-cached}
+
+   :edges {:start {:done :ok, :failed :fallback}
+           :ok :end, :fallback :end}
+
+   :dispatches {:start &#91;&#91;:failed &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/resilience-error d&#41;&#41;&#41;&#93;
+                        &#91;:done   &#40;fn &#91;d&#93; &#40;nil? &#40;:mycelium/resilience-error d&#41;&#41;&#41;&#93;&#93;}
+
+   :resilience {:start {:timeout        {:timeout-ms 5000}
+                        :retry          {:max-attempts 3 :wait-ms 200}
+                        :circuit-breaker {:failure-rate 50
+                                          :minimum-calls 10
+                                          :sliding-window-size 100
+                                          :wait-in-open-ms 60000}}}}&#41;
+</code></pre><p>When a resilience policy triggers, <code>:mycelium/resilience-error</code> is set with <code>{:type :timeout|:circuit-open|:bulkhead-full|:rate-limited, :cell ..., :message ...}</code>.</p><p>Stateful policies (circuit breaker, rate limiter) require <code>pre-compile</code> + <code>run-compiled</code> to share state across calls.<h2></h2></p><h2 id="add&#95;a&#95;timeout&#95;to&#95;a&#95;cell">Add a Timeout to a Cell</h2><p><strong>Problem:</strong> A cell should fall back to an alternative if it takes too long, without touching handler code.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:fetch    :data/fetch-remote
+           :process  :data/process
+           :fallback :data/use-default}
+
+   :edges {:fetch {:done :process, :timeout :fallback}
+           :process :end, :fallback :end}
+
+   :dispatches {:fetch &#91;&#91;:done &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/timeout d&#41;&#41;&#41;&#93;&#93;}
+
+   :timeouts {:fetch 5000}}&#41;  ;; milliseconds
+</code></pre><p>Graph-level timeouts <strong>route</strong> to a fallback cell. Resilience timeouts <strong>error</strong>. The <code>:timeout</code> dispatch predicate is auto-injected and evaluated first. Output schema validation is skipped for timed-out cells.<h2></h2></p><h2 id="inspect&#95;errors&#95;uniformly">Inspect Errors Uniformly</h2><p><strong>Problem:</strong> Mycelium has 6 different error keys. You want one check.</p><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow wf resources data&#41;&#93;
+  &#40;if &#40;myc/error? result&#41;
+    &#40;let &#91;{:keys &#91;error-type cell-id cell message details&#93;} &#40;myc/workflow-error result&#41;&#93;
+      &#40;case error-type
+        :schema/input   &#40;log/warn &quot;Bad input at&quot; cell-id&#41;
+        :schema/output  &#40;log/warn &quot;Bad output at&quot; cell-id&#41;
+        :handler        &#40;log/error &quot;Handler failed at&quot; cell&#41;
+        :join           &#40;log/error &quot;Join failed:&quot; message&#41;
+        :timeout        &#40;log/warn &quot;Cell timed out&quot;&#41;
+        ;; :resilience/timeout, :resilience/circuit-open,
+        ;; :resilience/bulkhead-full, :resilience/rate-limited
+        &#40;log/error &quot;Resilience error:&quot; error-type cell&#41;&#41;&#41;
+    &#40;handle-success result&#41;&#41;&#41;
+</code></pre><p><code>workflow-error</code> returns nil on success, or a map with <code>:error-type</code>, <code>:message</code>, <code>:details</code> (plus <code>:cell-id</code>, <code>:cell</code>, <code>:cell-path</code>, <code>:failed-keys</code> where applicable).<h2></h2></p><h2 id="write&#95;a&#95;cell">Write a Cell</h2><p><strong>Problem:</strong> You need to implement a cell with explicit input/output contracts.</p><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;&#41;
+
+&#40;defmethod cell/cell-spec :order/compute-tax &#91;&#95;&#93;
+  {:id      :order/compute-tax
+   :handler &#40;fn &#91;resources data&#93;
+              ;; With key propagation &#40;default&#41;: return only new keys
+              {:tax &#40;&#42; &#40;:subtotal data&#41; &#40;:tax-rate data&#41;&#41;}&#41;
+   :schema  {:input  &#91;:map &#91;:subtotal :double&#93; &#91;:tax-rate :double&#93;&#93;
+             :output &#91;:map &#91;:tax :double&#93;&#93;}}&#41;
+</code></pre><p>Key propagation is on by default — handler output is merged with input, so you only return new or changed keys. To return all keys explicitly, disable with <code>{:propagate-keys? false}</code>.</p><h3 id="async&#95;cell">Async Cell</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :api/fetch &#91;&#95;&#93;
+  {:id      :api/fetch
+   :async?  true
+   :handler &#40;fn &#91;resources data callback error-callback&#93;
+              &#40;http/get &#40;:url data&#41;
+                {:on-success &#40;fn &#91;resp&#93; &#40;callback {:response-body &#40;:body resp&#41;}&#41;&#41;
+                 :on-error   &#40;fn &#91;err&#93; &#40;error-callback err&#41;&#41;}&#41;&#41;
+   :schema  {:input  &#91;:map &#91;:url :string&#93;&#93;
+             :output &#91;:map &#91;:response-body :string&#93;&#93;}}&#41;
+</code></pre><h3 id="parameterized&#95;cell">Parameterized Cell</h3><pre><code class="clojure">;; Register once, use with different params
+&#40;defmethod cell/cell-spec :math/multiply &#91;&#95;&#93;
+  {:id      :math/multiply
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;let &#91;factor &#40;get-in data &#91;:mycelium/params :factor&#93;&#41;&#93;
+                {:result &#40;&#42; &#40;:value data&#41; factor&#41;}&#41;&#41;
+   :schema  {:input &#91;:map &#91;:value number?&#93;&#93; :output &#91;:map &#91;:result number?&#93;&#93;}}&#41;
+
+;; Use in workflow
+{:cells {:triple {:id :math/multiply :params {:factor 3}}
+         :double {:id :math/multiply :params {:factor 2}}}
+ :pipeline &#91;:triple :double&#93;}
+</code></pre><h2></h2><h2 id="test&#95;a&#95;cell&#95;in&#95;isolation">Test a Cell in Isolation</h2><p><strong>Problem:</strong> Verify a cell's behavior without running a full workflow.</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+;; Basic test
+&#40;dev/test-cell :order/compute-tax
+  {:input {:subtotal 100.0 :tax-rate 0.1}}&#41;
+;; =&gt; {:pass? true, :output {:tax 10.0, ...}, :errors &#91;&#93;, :duration-ms 0.42}
+
+;; Test with dispatch verification
+&#40;dev/test-cell :order/check-fraud
+  {:input      {:total 6000}
+   :dispatches &#91;&#91;:clean &#40;fn &#91;d&#93; &#40;= :ok &#40;:fraud-status d&#41;&#41;&#41;&#93;
+                &#91;:suspicious &#40;fn &#91;d&#93; &#40;= :flagged &#40;:fraud-status d&#41;&#41;&#41;&#93;&#93;
+   :expected-dispatch :suspicious}&#41;
+;; =&gt; {:pass? true, :matched-dispatch :suspicious, ...}
+
+;; Test multiple transitions at once
+&#40;dev/test-transitions :order/check-fraud
+  {:clean {:input {:total 100}
+           :dispatches &#91;&#91;:clean &#40;fn &#91;d&#93; &#40;= :ok &#40;:fraud-status d&#41;&#41;&#41;&#93;
+                        &#91;:suspicious &#40;fn &#91;d&#93; &#40;= :flagged &#40;:fraud-status d&#41;&#41;&#41;&#93;&#93;}
+   :suspicious {:input {:total 6000}
+                :dispatches &#91;&#91;:clean &#40;fn &#91;d&#93; &#40;= :ok &#40;:fraud-status d&#41;&#41;&#41;&#93;
+                             &#91;:suspicious &#40;fn &#91;d&#93; &#40;= :flagged &#40;:fraud-status d&#41;&#41;&#41;&#93;&#93;}}&#41;
+</code></pre><h2></h2><h2 id="debug&#95;workflow&#95;execution">Debug Workflow Execution</h2><p><strong>Problem:</strong> You need to see what happened during a workflow run.</p><h3 id="live&#95;tracing&#95;(repl)">Live Tracing (REPL)</h3><pre><code class="clojure">;; Built-in trace logger — prints each cell as it completes
+&#40;myc/run-workflow wf resources data {:on-trace &#40;dev/trace-logger&#41;}&#41;
+;; Prints:
+;; 1. :validate &#40;:app/validate&#41; -&gt; :done &#91;0.42ms&#93;
+;; 2. :process &#40;:app/transform&#41; -&gt; :done &#91;1.23ms&#93;
+
+;; Custom callback
+&#40;myc/run-workflow wf resources data
+  {:on-trace &#40;fn &#91;entry&#93;
+               &#40;log/info &#40;:cell entry&#41; &#40;:duration-ms entry&#41;&#41;&#41;}&#41;
+</code></pre><h3 id="post-run&#95;trace&#95;inspection">Post-Run Trace Inspection</h3><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow wf resources data&#41;
+      trace  &#40;:mycelium/trace result&#41;&#93;
+  ;; Pretty-print the full trace
+  &#40;println &#40;dev/format-trace trace&#41;&#41;
+
+  ;; Assert on execution path
+  &#40;is &#40;= &#91;:validate :process :render&#93; &#40;mapv :cell trace&#41;&#41;&#41;
+
+  ;; Check specific cell output
+  &#40;is &#40;= 42 &#40;get-in &#40;last trace&#41; &#91;:data :result&#93;&#41;&#41;&#41;&#41;
+</code></pre><p>Each trace entry: <code>{:cell :name, :cell-id :ns/id, :transition :label, :duration-ms N, :data {...}, :error {...}}</code>.<h2></h2></p><h2 id="handle&#95;type&#95;mismatches&#95;between&#95;cells">Handle Type Mismatches Between Cells</h2><p><strong>Problem:</strong> One cell produces a <code>double</code> but the next expects an <code>int</code>.</p><pre><code class="clojure">;; Enable coercion at compile time
+&#40;def compiled &#40;myc/pre-compile workflow {:coerce? true}&#41;&#41;
+&#40;myc/run-compiled compiled resources data&#41;
+
+;; Or per-run
+&#40;myc/run-workflow workflow resources data {:coerce? true}&#41;
+</code></pre><p>Only whole-valued doubles (<code>949.0</code>) are coerced to int. Fractional values (<code>949.5</code>) still fail validation. Uses Malli's <code>json-transformer</code>.<h2></h2></p><h2 id="serve&#95;a&#95;workflow&#95;as&#95;a&#95;ring&#95;handler">Serve a Workflow as a Ring Handler</h2><p><strong>Problem:</strong> Expose a workflow as an HTTP endpoint.</p><pre><code class="clojure">&#40;require '&#91;mycelium.middleware :as mw&#93;&#41;
+
+&#40;def compiled &#40;myc/pre-compile workflow&#41;&#41;
+
+;; Basic handler — request goes in, HTML comes out
+&#40;def handler &#40;mw/workflow-handler compiled {:resources {:db db}}&#41;&#41;
+
+;; Custom input/output transforms
+&#40;def handler
+  &#40;mw/workflow-handler compiled
+    {:resources {:db db}
+     :input-fn  &#40;fn &#91;req&#93; {:user-id &#40;get-in req &#91;:params :id&#93;&#41;}&#41;
+     :output-fn &#40;fn &#91;result&#93; {:status 200
+                               :headers {&quot;Content-Type&quot; &quot;application/json&quot;}
+                               :body &#40;json/encode result&#41;}&#41;}&#41;&#41;
+
+;; Per-request resources
+&#40;def handler
+  &#40;mw/workflow-handler compiled
+    {:resources &#40;fn &#91;req&#93; {:db db :current-user &#40;:identity req&#41;}&#41;}&#41;&#41;
+</code></pre><h2></h2><h2 id="validate&#95;workflow&#95;structure&#95;at&#95;compile&#95;time">Validate Workflow Structure at Compile Time</h2><p><strong>Problem:</strong> Ensure structural invariants hold across all possible execution paths.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start   :app/validate
+           :process :app/process
+           :audit   :app/audit-log
+           :review  :app/manual-review
+           :auto    :app/auto-approve}
+
+   :edges {:start {:ok :process, :invalid :end}
+           :process {:review :review, :auto :auto}
+           :review :audit, :auto :audit, :audit :end}
+
+   :dispatches {:start   &#91;&#91;:ok &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;
+                          &#91;:invalid &#40;fn &#91;d&#93; &#40;not &#40;:valid d&#41;&#41;&#41;&#93;&#93;
+                :process &#91;&#91;:review &#40;fn &#91;d&#93; &#40;:needs-review d&#41;&#41;&#93;
+                          &#91;:auto &#40;fn &#91;d&#93; &#40;not &#40;:needs-review d&#41;&#41;&#41;&#93;&#93;}
+
+   :constraints &#91;{:type :must-follow :if :process :then :audit}
+                 {:type :never-together :cells &#91;:review :auto&#93;}
+                 {:type :always-reachable :cell :audit}&#93;}&#41;
+</code></pre><p>Violations throw at compile time with the specific path that breaks the constraint.</p><table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody><tr><td><code>:must-follow</code></td><td>If <code>:if</code> cell runs, <code>:then</code> must appear later on same path</td></tr><tr><td><code>:must-precede</code></td><td><code>:cell</code> must appear before <code>:before</code></td></tr><tr><td><code>:never-together</code></td><td>Listed cells never on same path</td></tr><tr><td><code>:always-reachable</code></td><td>Cell on every path reaching <code>:end</code></td></tr></tbody></table><h2></h2><h2 id="share&#95;workflow&#95;logic&#95;with&#95;fragments">Share Workflow Logic with Fragments</h2><p><strong>Problem:</strong> Multiple workflows share the same sub-graph (e.g., authentication).</p><pre><code class="clojure">;; fragments/auth.edn
+{:cells {:parse    {:id :auth/parse-request :schema :inherit}
+         :validate {:id :auth/validate-session :schema :inherit}}
+ :edges {:parse {:ok :validate}
+         :validate {:valid   :&#95;exit/success
+                    :invalid :&#95;exit/failure}}
+ :dispatches {:parse    &#91;&#91;:ok &#40;fn &#91;d&#93; &#40;:parsed d&#41;&#41;&#93;&#93;
+              :validate &#91;&#91;:valid &#40;fn &#91;d&#93; &#40;:session-valid d&#41;&#41;&#93;
+                         &#91;:invalid &#40;fn &#91;d&#93; &#40;not &#40;:session-valid d&#41;&#41;&#41;&#93;&#93;}}
+
+;; Host workflow references the fragment
+{:cells {:dashboard :app/render-dashboard
+         :login     :app/login-page}
+ :fragments {:auth {:ref &quot;fragments/auth.edn&quot;
+                    :as :start
+                    :exits {:success :dashboard
+                            :failure :login}}}
+ :edges {:dashboard :end, :login :end}}
+</code></pre><p><code>:&#95;exit/name</code> references are resolved during fragment expansion. Fragment cells are merged into the host workflow.<h2></h2></p><h2 id="analyze&#95;a&#95;workflow&#95;before&#95;running&#95;it">Analyze a Workflow Before Running It</h2><p><strong>Problem:</strong> Check for unreachable cells, missing paths, or cycles.</p><pre><code class="clojure">;; Static analysis
+&#40;dev/analyze-workflow workflow-def&#41;
+;; =&gt; {:reachable #{:start :step2 ...}
+;;     :unreachable #{}
+;;     :no-path-to-end #{}
+;;     :cycles &#91;&#93;}
+
+;; See accumulated schema at each cell
+&#40;dev/infer-workflow-schema workflow-def&#41;
+;; =&gt; {:start  {:available-before #{:x}, :adds #{:result}, :available-after #{:x :result}}
+;;     :step2  {:available-before #{:x :result}, :adds #{:total}, ...}}
+
+;; Enumerate all possible paths
+&#40;dev/enumerate-paths workflow-def&#41;
+;; =&gt; &#91;&#91;:start :process :end&#93; &#91;:start :error-handler :end&#93; ...&#93;
+
+;; Generate DOT graph for visualization
+&#40;dev/workflow-&gt;dot workflow-def&#41;
+</code></pre><h2></h2><h2 id="pre-compile&#95;for&#95;production">Pre-Compile for Production</h2><p><strong>Problem:</strong> Avoid recompiling the workflow on every request.</p><pre><code class="clojure">;; At startup — compile once
+&#40;def compiled &#40;myc/pre-compile workflow-def {:coerce? true}&#41;&#41;
+
+;; Per request — zero compilation overhead
+&#40;defn handle-request &#91;req&#93;
+  &#40;let &#91;resources {:db &#40;get-db&#41;}
+        data      &#40;extract-input req&#41;&#93;
+    &#40;myc/run-compiled compiled resources data&#41;&#41;&#41;
+</code></pre><p><code>pre-compile</code> does all validation, schema chain checking, and FSM compilation at call time. <code>run-compiled</code> only executes.<h2></h2></p><h2 id="use&#95;interceptors&#95;for&#95;cross-cutting&#95;concerns">Use Interceptors for Cross-Cutting Concerns</h2><p><strong>Problem:</strong> Add logging, timing, or transformation that applies to multiple cells without modifying handlers.</p><pre><code class="clojure">{:interceptors
+ &#91;{:id    :request-timing
+   :scope :all
+   :pre   &#40;fn &#91;data&#93; &#40;assoc data ::t0 &#40;System/nanoTime&#41;&#41;&#41;
+   :post  &#40;fn &#91;data&#93;
+            &#40;let &#91;elapsed &#40;/ &#40;- &#40;System/nanoTime&#41; &#40;::t0 data&#41;&#41; 1e6&#41;&#93;
+              &#40;println &quot;Cell took&quot; elapsed &quot;ms&quot;&#41;
+              &#40;dissoc data ::t0&#41;&#41;&#41;}
+
+  {:id    :ui-defaults
+   :scope {:id-match &quot;ui/&#42;&quot;}   ;; glob on cell :id
+   :pre   &#40;fn &#91;data&#93; &#40;assoc data :theme &quot;dark&quot;&#41;&#41;}
+
+  {:id    :audit
+   :scope {:cells &#91;:payment :refund&#93;}   ;; specific cell names
+   :post  &#40;fn &#91;data&#93;
+            &#40;update data :audit-log conj {:action &#40;:last-action data&#41;
+                                           :time &#40;System/currentTimeMillis&#41;}&#41;&#41;}&#93;}
+</code></pre><p>Interceptor <code>:pre</code>/<code>:post</code> receive and return the data map. Scope forms: <code>:all</code>, <code>{:id-match &quot;pattern/&#42;&quot;}</code>, <code>{:cells &#91;:x :y&#93;}</code>.<h2></h2></p><h2 id="generate&#95;llm&#95;briefs&#95;for&#95;agent&#95;orchestration">Generate LLM Briefs for Agent Orchestration</h2><p><strong>Problem:</strong> Give AI agents focused context to implement individual cells.</p><pre><code class="clojure">&#40;require '&#91;mycelium.orchestrate :as orch&#93;&#41;
+
+;; Brief for a single cell
+&#40;myc/cell-brief manifest :validate&#41;
+;; Returns a self-contained prompt with schema, edges, and context
+
+;; Briefs for all cells &#40;parallel agent assignment&#41;
+&#40;orch/cell-briefs manifest&#41;
+
+;; After a cell implementation fails, generate a targeted reassignment brief
+&#40;orch/reassignment-brief manifest :validate
+  {:error &quot;Output missing key :session-valid&quot;
+   :input {:user-id &quot;alice&quot;}
+   :output {:session-valid nil}}&#41;
+
+;; Scoped context for a region of the graph
+&#40;orch/region-brief manifest :auth&#41;
+
+;; Implementation plan — what can run in parallel
+&#40;orch/plan manifest&#41;
+</code></pre><h2></h2><h2 id="common&#95;patterns">Common Patterns</h2><h3 id="errors&#95;are&#95;data,&#95;not&#95;exceptions">Errors Are Data, Not Exceptions</h3><p>Expected failure conditions should be keys on the data map, routed via dispatch predicates:</p><pre><code class="clojure">;; Cell sets a status key
+&#40;fn &#91;resources data&#93;
+  &#40;let &#91;result &#40;charge-card resources &#40;:card data&#41; &#40;:total data&#41;&#41;&#93;
+    {:payment-status &#40;if &#40;:success result&#41; :approved :declined&#41;}&#41;&#41;
+
+;; Workflow routes on it
+:dispatches {:payment &#91;&#91;:approved &#40;fn &#91;d&#93; &#40;= :approved &#40;:payment-status d&#41;&#41;&#41;&#93;
+                       &#91;:declined &#40;fn &#91;d&#93; &#40;= :declined &#40;:payment-status d&#41;&#41;&#41;&#93;&#93;}
+</code></pre><p>Reserve exceptions for truly unexpected failures (IO errors, connection drops). Use error groups for those.</p><h3 id="manifest-first&#95;design">Manifest-First Design</h3><p>Write the manifest (cells, edges, schemas) before implementing handlers. The manifest is the architecture — it compiles and validates before any cell code runs. Each cell can then be implemented independently using only its schema as context.</p><h3 id="cell&#95;output&#95;with&#95;key&#95;propagation">Cell Output With Key Propagation</h3><p>With key propagation (default), cells return only new or changed keys:</p><pre><code class="clojure">;; Handler returns only what it adds
+&#40;fn &#91;&#95; data&#93; {:tax &#40;&#42; &#40;:subtotal data&#41; 0.1&#41;}&#41;
+;; Framework merges: &#40;merge input-keys handler-output&#41;
+;; Handler output takes precedence on conflicts
+</code></pre><p>Disable with <code>{:propagate-keys? false}</code> if you need explicit control over which keys flow forward.</p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/cookbook.html">
+            Cookbook
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>
