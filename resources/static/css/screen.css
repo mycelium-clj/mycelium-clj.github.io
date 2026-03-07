@@ -387,3 +387,26 @@ p code, li code {
         gap: 0.5em;
     }
 }
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary: #e2e8f0;
+        --primary-dark: #0f172a;
+        --accent: #60a5fa;
+        --accent-hover: #93bbfd;
+        --text: #e2e8f0;
+        --text-light: #94a3b8;
+        --bg: #1e293b;
+        --bg-alt: #0f172a;
+        --border: #334155;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+        --shadow-md: 0 4px 6px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
+    }
+    header {
+        background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+    }
+    #easy-start .bash {
+        background: #020617;
+    }
+}
