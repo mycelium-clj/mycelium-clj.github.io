@@ -421,4 +421,75 @@ p code, li code {
     #easy-start .bash {
         background: #020617;
     }
+    .hljs {
+        background: var(--bg-alt);
+        color: #e2e8f0;
+    }
+    .hljs-comment,
+    .hljs-template_comment,
+    .hljs-javadoc {
+        color: #6b7280;
+    }
+    .hljs-keyword,
+    .method,
+    .hljs-list .hljs-title,
+    .clojure .hljs-built_in,
+    .hljs-tag .hljs-title,
+    .hljs-winutils,
+    .hljs-request,
+    .hljs-status {
+        color: #93c5fd;
+    }
+    .hljs-string,
+    .hljs-tag .hljs-value,
+    .hljs-cdata,
+    .hljs-filter .hljs-argument,
+    .hljs-attr_selector,
+    .hljs-date,
+    .hljs-regexp {
+        color: #86efac;
+    }
+    .hljs-number,
+    .hljs-literal,
+    .hljs-hexcolor,
+    .hljs-symbol {
+        color: #67e8f9;
+    }
+    .hljs-class .hljs-title,
+    .hljs-javadoctag,
+    .hljs-yardoctag,
+    .hljs-phpdoc,
+    .hljs-typename,
+    .hljs-tag .hljs-attribute,
+    .hljs-doctype,
+    .hljs-built_in,
+    .hljs-variable,
+    .hljs-params,
+    .clojure .hljs-title,
+    .clojure .hljs-attribute {
+        color: #c4b5fd;
+    }
+    .hljs-subst,
+    .hljs-pseudo,
+    .css .hljs-tag,
+    .hljs-rules .hljs-property {
+        color: #e2e8f0;
+    }
+    .hljs-preprocessor,
+    .hljs-preprocessor *,
+    .hljs-pragma {
+        color: #9ca3af;
+    }
+    .tex .hljs-formula {
+        background-color: #1e293b;
+    }
+    .diff .hljs-change {
+        background-color: #1e3a5f;
+    }
+    .hljs-addition {
+        background-color: #14532d;
+    }
+    .hljs-deletion {
+        background-color: #7f1d1d;
+    }
 }
