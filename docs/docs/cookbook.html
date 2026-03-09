@@ -59,7 +59,7 @@
       <h1>Cookbook</h1>
       
       <h2>Contents</h2>
-      <ol class="contents"><li><a href="#mycelium_cookbook">Mycelium Cookbook</a></li><li><a href="#build_a_linear_pipeline">Build a Linear Pipeline</a></li><li><a href="#add_branching_logic">Add Branching Logic</a></li><li><a href="#add_a_catch-all_fallback">Add a Catch-All Fallback</a></li><li><a href="#run_steps_in_parallel_(fork-join)">Run Steps in Parallel (Fork-Join)</a></li><li><a href="#handle_errors_across_multiple_cells">Handle Errors Across Multiple Cells</a></li><li><a href="#add_a_human_approval_gate_(halt/resume)">Add a Human Approval Gate (Halt/Resume)</a><ol><li><a href="#persisting_halted_state_across_sessions">Persisting Halted State Across Sessions</a></li></ol></li><li><a href="#wrap_a_workflow_as_a_reusable_cell">Wrap a Workflow as a Reusable Cell</a></li><li><a href="#protect_against_external_service_failures">Protect Against External Service Failures</a></li><li><a href="#add_a_timeout_to_a_cell">Add a Timeout to a Cell</a></li><li><a href="#inspect_errors_uniformly">Inspect Errors Uniformly</a></li><li><a href="#write_a_cell">Write a Cell</a><ol><li><a href="#async_cell">Async Cell</a></li><li><a href="#parameterized_cell">Parameterized Cell</a></li></ol></li><li><a href="#test_a_cell_in_isolation">Test a Cell in Isolation</a></li><li><a href="#debug_workflow_execution">Debug Workflow Execution</a><ol><li><a href="#live_tracing_(repl)">Live Tracing (REPL)</a></li><li><a href="#post-run_trace_inspection">Post-Run Trace Inspection</a></li></ol></li><li><a href="#handle_type_mismatches_between_cells">Handle Type Mismatches Between Cells</a></li><li><a href="#serve_a_workflow_as_a_ring_handler">Serve a Workflow as a Ring Handler</a></li><li><a href="#validate_workflow_structure_at_compile_time">Validate Workflow Structure at Compile Time</a></li><li><a href="#share_workflow_logic_with_fragments">Share Workflow Logic with Fragments</a></li><li><a href="#analyze_a_workflow_before_running_it">Analyze a Workflow Before Running It</a></li><li><a href="#pre-compile_for_production">Pre-Compile for Production</a></li><li><a href="#use_interceptors_for_cross-cutting_concerns">Use Interceptors for Cross-Cutting Concerns</a></li><li><a href="#generate_llm_briefs_for_agent_orchestration">Generate LLM Briefs for Agent Orchestration</a></li><li><a href="#common_patterns">Common Patterns</a><ol><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#manifest-first_design">Manifest-First Design</a></li><li><a href="#cell_output_with_key_propagation">Cell Output With Key Propagation</a></li></ol></li></ol>
+      <ol class="contents"><li><a href="#mycelium_cookbook">Mycelium Cookbook</a></li><li><a href="#build_a_linear_pipeline">Build a Linear Pipeline</a></li><li><a href="#add_branching_logic">Add Branching Logic</a></li><li><a href="#add_a_catch-all_fallback">Add a Catch-All Fallback</a></li><li><a href="#run_steps_in_parallel_(fork-join)">Run Steps in Parallel (Fork-Join)</a></li><li><a href="#handle_errors_across_multiple_cells">Handle Errors Across Multiple Cells</a></li><li><a href="#add_a_human_approval_gate_(halt/resume)">Add a Human Approval Gate (Halt/Resume)</a><ol><li><a href="#persisting_halted_state_across_sessions">Persisting Halted State Across Sessions</a></li></ol></li><li><a href="#wrap_a_workflow_as_a_reusable_cell">Wrap a Workflow as a Reusable Cell</a></li><li><a href="#protect_against_external_service_failures">Protect Against External Service Failures</a></li><li><a href="#add_a_timeout_to_a_cell">Add a Timeout to a Cell</a></li><li><a href="#inspect_errors_uniformly">Inspect Errors Uniformly</a></li><li><a href="#write_a_cell">Write a Cell</a><ol><li><a href="#async_cell">Async Cell</a></li><li><a href="#parameterized_cell">Parameterized Cell</a></li></ol></li><li><a href="#test_a_cell_in_isolation">Test a Cell in Isolation</a></li><li><a href="#debug_workflow_execution">Debug Workflow Execution</a><ol><li><a href="#live_tracing_(repl)">Live Tracing (REPL)</a></li><li><a href="#post-run_trace_inspection">Post-Run Trace Inspection</a></li></ol></li><li><a href="#handle_type_mismatches_between_cells">Handle Type Mismatches Between Cells</a></li><li><a href="#serve_a_workflow_as_a_ring_handler">Serve a Workflow as a Ring Handler</a></li><li><a href="#validate_workflow_structure_at_compile_time">Validate Workflow Structure at Compile Time</a></li><li><a href="#share_workflow_logic_with_fragments">Share Workflow Logic with Fragments</a></li><li><a href="#analyze_a_workflow_before_running_it">Analyze a Workflow Before Running It</a></li><li><a href="#pre-compile_for_production">Pre-Compile for Production</a></li><li><a href="#use_interceptors_for_cross-cutting_concerns">Use Interceptors for Cross-Cutting Concerns</a></li><li><a href="#generate_llm_briefs_for_agent_orchestration">Generate LLM Briefs for Agent Orchestration</a></li><li><a href="#recover_from_individual_cell_failures">Recover From Individual Cell Failures</a></li><li><a href="#route_a_multi-way_decision">Route a Multi-Way Decision</a></li><li><a href="#handle_partial_failures_in_parallel_joins">Handle Partial Failures in Parallel Joins</a><ol><li><a href="#resolving_output_key_conflicts">Resolving Output Key Conflicts</a></li></ol></li><li><a href="#sequential_join_for_ordered_dependencies">Sequential Join for Ordered Dependencies</a></li><li><a href="#build_a_decision_chain_(if/else-if/else)">Build a Decision Chain (If/Else-If/Else)</a></li><li><a href="#pass_external_dependencies_via_resources">Pass External Dependencies via Resources</a><ol><li><a href="#per-request_resources">Per-Request Resources</a></li></ol></li><li><a href="#manage_data_flow_across_cells">Manage Data Flow Across Cells</a><ol><li><a href="#key_propagation_(default:_on)">Key Propagation (Default: On)</a></li><li><a href="#design_schema_chains">Design Schema Chains</a></li><li><a href="#explicit_control">Explicit Control</a></li></ol></li><li><a href="#validate_workflow_input_before_running">Validate Workflow Input Before Running</a></li><li><a href="#diagnose_schema_failures">Diagnose Schema Failures</a></li><li><a href="#combine_timeouts_with_fallback_logic">Combine Timeouts with Fallback Logic</a></li><li><a href="#common_patterns">Common Patterns</a><ol><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#manifest-first_design">Manifest-First Design</a></li><li><a href="#cell_output_with_key_propagation">Cell Output With Key Propagation</a></li></ol></li></ol>
       
       <div id="content">
         <h1 id="mycelium&#95;cookbook">Mycelium Cookbook</h1><p>Problem-oriented patterns for common workflow tasks. Each recipe shows the problem, the idiomatic solution, and the key details.<h2></h2></p><h2 id="build&#95;a&#95;linear&#95;pipeline">Build a Linear Pipeline</h2><p><strong>Problem:</strong> You have a sequence of steps that run one after another with no branching.</p><pre><code class="clojure">;; Use :pipeline shorthand — no :edges or :dispatches needed
@@ -419,7 +419,177 @@
 
 ;; Implementation plan — what can run in parallel
 &#40;orch/plan manifest&#41;
-</code></pre><h2></h2><h2 id="common&#95;patterns">Common Patterns</h2><h3 id="errors&#95;are&#95;data,&#95;not&#95;exceptions">Errors Are Data, Not Exceptions</h3><p>Expected failure conditions should be keys on the data map, routed via dispatch predicates:</p><pre><code class="clojure">;; Cell sets a status key
+</code></pre><h2></h2><h2 id="recover&#95;from&#95;individual&#95;cell&#95;failures">Recover From Individual Cell Failures</h2><p><strong>Problem:</strong> A specific cell might fail, and you want a targeted recovery path without grouping it with other cells.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start     :order/process-payment
+           :confirm   :order/send-confirmation
+           :retry-pay :order/retry-with-backup
+           :err       :order/payment-failed}
+
+   :edges {:start     {:done :confirm, :on-error :retry-pay}
+           :retry-pay {:done :confirm, :on-error :err}
+           :confirm   :end
+           :err       :end}
+
+   :dispatches {:start     &#91;&#91;:done     &#40;fn &#91;d&#93; &#40;nil? &#40;:mycelium/error d&#41;&#41;&#41;&#93;
+                            &#91;:on-error &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/error d&#41;&#41;&#41;&#93;&#93;
+                :retry-pay &#91;&#91;:done     &#40;fn &#91;d&#93; &#40;nil? &#40;:mycelium/error d&#41;&#41;&#41;&#93;
+                            &#91;:on-error &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/error d&#41;&#41;&#41;&#93;&#93;}
+
+   :error-groups {:payment {:cells &#91;:start :retry-pay&#93;
+                             :on-error :err}}}&#41;
+</code></pre><p>The error handler cell can inspect what went wrong:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :order/retry-with-backup &#91;&#95;&#93;
+  {:id      :order/retry-with-backup
+   :handler &#40;fn &#91;{:keys &#91;backup-gateway&#93;} data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                &#40;log/warn &quot;Primary payment failed at&quot; cell &quot;:&quot; message&#41;
+                ;; Clear the error and retry with backup
+                &#40;-&gt; &#40;dissoc data :mycelium/error&#41;
+                    &#40;assoc :payment-result
+                           &#40;charge backup-gateway &#40;:card data&#41; &#40;:total data&#41;&#41;&#41;&#41;&#41;&#41;
+   :schema {:input &#91;:map &#91;:card :string&#93; &#91;:total :double&#93;&#93;
+            :output &#91;:map &#91;:payment-result :string&#93;&#93;}}&#41;
+</code></pre><h2></h2><h2 id="route&#95;a&#95;multi-way&#95;decision">Route a Multi-Way Decision</h2><p><strong>Problem:</strong> A cell needs to route to 3+ different paths based on its output.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start    :loan/evaluate
+           :approve  :loan/auto-approve
+           :reject   :loan/auto-reject
+           :review   :loan/queue-review
+           :notify   :loan/send-notification}
+
+   :edges {:start   {:approve :approve, :reject :reject, :review :review}
+           :approve :notify
+           :reject  :notify
+           :review  :notify
+           :notify  :end}
+
+   :dispatches {:start &#91;&#91;:approve &#40;fn &#91;d&#93; &#40;= :approve &#40;:decision d&#41;&#41;&#41;&#93;
+                        &#91;:reject  &#40;fn &#91;d&#93; &#40;= :reject &#40;:decision d&#41;&#41;&#41;&#93;
+                        &#91;:review  &#40;fn &#91;d&#93; &#40;= :review &#40;:decision d&#41;&#41;&#41;&#93;&#93;}}&#41;
+</code></pre><p>This is a <strong>diamond pattern</strong> — three branches converge to <code>:notify</code>. Each branch runs its own logic, then all paths flow into the same downstream cell. The converging cell's input schema should accept the union of what any upstream branch produces.<h2></h2></p><h2 id="handle&#95;partial&#95;failures&#95;in&#95;parallel&#95;joins">Handle Partial Failures in Parallel Joins</h2><p><strong>Problem:</strong> You run multiple cells in parallel, but some may fail while others succeed.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start    :order/validate
+           :tax      :order/calc-tax
+           :shipping :order/calc-shipping
+           :discount :order/apply-discount
+           :total    :order/compute-total
+           :partial  :order/partial-recovery}
+
+   :joins {:fees {:cells    &#91;:tax :shipping :discount&#93;
+                  :strategy :parallel}}
+
+   :edges {:start   :fees
+           :fees    {:done :total, :failure :partial}
+           :total   :end
+           :partial :end}}&#41;
+</code></pre><p>When any join member throws, <code>:mycelium/join-error</code> is set on data with details of which members failed. The <code>:failure</code> edge is auto-dispatched. The recovery cell can inspect partial results:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :order/partial-recovery &#91;&#95;&#93;
+  {:id      :order/partial-recovery
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;let &#91;errors &#40;:mycelium/join-error data&#41;&#93;
+                ;; errors is a seq of {:cell-id :order/calc-shipping, :cell :shipping, ...}
+                ;; Successfully completed members' outputs are already merged into data
+                {:order-note &#40;str &quot;Completed with &quot; &#40;count errors&#41; &quot; service&#40;s&#41; unavailable&quot;&#41;
+                 :total &#40;or &#40;:tax data&#41; 0&#41;}&#41;&#41;
+   :schema {:input &#91;:map&#93; :output &#91;:map &#91;:order-note :string&#93; &#91;:total number?&#93;&#93;}}&#41;
+</code></pre><h3 id="resolving&#95;output&#95;key&#95;conflicts">Resolving Output Key Conflicts</h3><p>When parallel members produce overlapping keys, provide a <code>:merge-fn</code>:</p><pre><code class="clojure">:joins {:fetch-all {:cells    &#91;:fetch-a :fetch-b&#93;
+                    :strategy :parallel
+                    :merge-fn &#40;fn &#91;data results&#93;
+                                ;; results is {member-name -&gt; member-output}
+                                &#40;assoc data :items
+                                       &#40;concat &#40;get-in results &#91;:fetch-a :items&#93;&#41;
+                                               &#40;get-in results &#91;:fetch-b :items&#93;&#41;&#41;&#41;&#41;}}
+</code></pre><p>Without <code>:merge-fn</code>, overlapping output keys cause a compile-time error.<h2></h2></p><h2 id="sequential&#95;join&#95;for&#95;ordered&#95;dependencies">Sequential Join for Ordered Dependencies</h2><p><strong>Problem:</strong> Multiple steps need to run in a join group but order matters.</p><pre><code class="clojure">:joins {:setup {:cells    &#91;:create-account :provision-db :seed-data&#93;
+                :strategy :sequential}}
+</code></pre><p><code>:sequential</code> runs members in the order listed. Each member gets the <strong>original input snapshot</strong> (not the prior member's output). Use this when steps have ordering requirements but don't depend on each other's output.<h2></h2></p><h2 id="build&#95;a&#95;decision&#95;chain&#95;(if/else-if/else)">Build a Decision Chain (If/Else-If/Else)</h2><p><strong>Problem:</strong> You need a cascading series of checks — try A, if not B, if not C.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start     :route/classify
+           :premium   :route/premium-handler
+           :standard  :route/standard-handler
+           :basic     :route/basic-handler}
+
+   :edges {:start {:premium :premium, :standard :standard, :default :basic}
+           :premium  :end
+           :standard :end
+           :basic    :end}
+
+   :dispatches {:start &#91;&#91;:premium  &#40;fn &#91;d&#93; &#40;= :premium &#40;:tier d&#41;&#41;&#41;&#93;
+                        &#91;:standard &#40;fn &#91;d&#93; &#40;= :standard &#40;:tier d&#41;&#41;&#41;&#93;&#93;}}&#41;
+</code></pre><p>The <code>:default</code> edge fires only when no predicate matches — it's the else branch. No dispatch entry needed for <code>:default</code>.<h2></h2></p><h2 id="pass&#95;external&#95;dependencies&#95;via&#95;resources">Pass External Dependencies via Resources</h2><p><strong>Problem:</strong> Cells need database connections, HTTP clients, or configuration that shouldn't flow through the data map.</p><pre><code class="clojure">;; Declare what a cell needs
+&#40;defmethod cell/cell-spec :user/lookup &#91;&#95;&#93;
+  {:id       :user/lookup
+   :requires &#91;:db&#93;
+   :handler  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
+               {:user &#40;db/find-user db &#40;:user-id data&#41;&#41;}&#41;
+   :schema   {:input  &#91;:map &#91;:user-id :string&#93;&#93;
+              :output &#91;:map &#91;:user &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;}}&#41;
+
+;; Provide resources at run time
+&#40;myc/run-compiled compiled
+  {:db &#40;get-connection-pool&#41;
+   :http &#40;http/client&#41;}
+  {:user-id &quot;alice&quot;}&#41;
+</code></pre><p>Resources are the first argument to every handler. Use them for:</p><ul><li>Database connections / connection pools</li><li>HTTP clients</li><li>Configuration maps</li><li>Caches</li><li>External service clients</li></ul><p>Data map is for <strong>workflow state</strong> (what flows between cells). Resources are for <strong>infrastructure</strong> (shared across cells, never serialized).</p><h3 id="per-request&#95;resources">Per-Request Resources</h3><pre><code class="clojure">;; In Ring middleware — resources can vary per request
+&#40;mw/workflow-handler compiled
+  {:resources &#40;fn &#91;req&#93;
+                {:db db-pool
+                 :current-user &#40;:identity req&#41;
+                 :request-id &#40;str &#40;random-uuid&#41;&#41;}&#41;}&#41;
+</code></pre><h2></h2><h2 id="manage&#95;data&#95;flow&#95;across&#95;cells">Manage Data Flow Across Cells</h2><p><strong>Problem:</strong> You want to understand how data accumulates and flows through a workflow.</p><h3 id="key&#95;propagation&#95;(default:&#95;on)">Key Propagation (Default: On)</h3><p>With key propagation, every cell receives all keys from all prior cells:</p><pre><code class="clojure">;; Cell A returns {:tax 10.0}
+;; Cell B receives {:subtotal 100.0, :tax 10.0} &#40;A's output merged with input&#41;
+;; Cell B returns {:total 110.0}
+;; Cell C receives {:subtotal 100.0, :tax 10.0, :total 110.0}
+</code></pre><p>Handlers only return <strong>new or changed keys</strong>. The framework merges them with the accumulated state. Handler output takes precedence on key conflicts.</p><h3 id="design&#95;schema&#95;chains">Design Schema Chains</h3><p>Each cell's input schema should declare only the keys it actually reads. Each cell's output schema should declare only the keys it adds:</p><pre><code class="clojure">;; Cell A
+:schema {:input  &#91;:map &#91;:raw-text :string&#93;&#93;
+         :output &#91;:map &#91;:tokens &#91;:vector :string&#93;&#93;&#93;}
+
+;; Cell B — can use :raw-text &#40;propagated&#41; and :tokens &#40;from A&#41;
+:schema {:input  &#91;:map &#91;:tokens &#91;:vector :string&#93;&#93;&#93;
+         :output &#91;:map &#91;:word-count :int&#93;&#93;}
+
+;; Cell C — can use all three accumulated keys
+:schema {:input  &#91;:map &#91;:tokens &#91;:vector :string&#93;&#93; &#91;:word-count :int&#93;&#93;
+         :output &#91;:map &#91;:summary :string&#93;&#93;}
+</code></pre><p>The framework validates schema chains at compile time — it checks that every key a cell requires is available from some upstream cell's output or the initial workflow input.</p><h3 id="explicit&#95;control">Explicit Control</h3><p>Disable key propagation when you need full control:</p><pre><code class="clojure">&#40;myc/pre-compile workflow {:propagate-keys? false}&#41;
+;; Now each cell must return ALL keys the next cell needs
+</code></pre><h2></h2><h2 id="validate&#95;workflow&#95;input&#95;before&#95;running">Validate Workflow Input Before Running</h2><p><strong>Problem:</strong> Reject invalid initial data before any cells execute.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start :app/process}
+   :edges {:start :end}
+   :input-schema &#91;:map
+                  &#91;:user-id :string&#93;
+                  &#91;:amount &#91;:and :double &#91;:&gt; 0&#93;&#93;&#93;&#93;}&#41;
+
+&#40;let &#91;result &#40;myc/run-workflow workflow {} {:user-id 123 :amount -5}&#41;&#93;
+  &#40;when-let &#91;err &#40;:mycelium/input-error result&#41;&#93;
+    ;; Workflow didn't run — input was invalid
+    &#40;println &quot;Bad input:&quot; &#40;:errors err&#41;&#41;&#41;&#41;
+</code></pre><p><code>:input-schema</code> is validated before the first cell runs. If validation fails, <code>:mycelium/input-error</code> is set and no cells execute.<h2></h2></p><h2 id="diagnose&#95;schema&#95;failures">Diagnose Schema Failures</h2><p><strong>Problem:</strong> A schema validation fails at runtime and you need to quickly identify which cell and which keys caused it.</p><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow wf resources data&#41;&#93;
+  &#40;when-let &#91;{:keys &#91;cell-name cell-id message failed-keys cell-path&#93;}
+             &#40;myc/workflow-error result&#41;&#93;
+    ;; message: &quot;Schema input validation failed at step-b &#40;:app/step-b&#41; — failing keys: &#40;:amount :name&#41;&quot;
+    &#40;println message&#41;
+
+    ;; Inspect each failing key
+    &#40;doseq &#91;&#91;k {:keys &#91;value type message&#93;}&#93; failed-keys&#93;
+      &#40;println &quot;  &quot; k &quot;=&quot; value &quot;&#40;&quot; type &quot;&#41;&quot; &quot;-&quot; message&#41;&#41;
+    ;; :amount = 949.5 &#40;java.lang.Double&#41; - should be an integer
+    ;; :name = nil &#40;nil&#41; - missing required key
+
+    ;; See execution path leading to failure
+    &#40;println &quot;Path:&quot; cell-path&#41;&#41;&#41;
+    ;; Path: &#91;:validate :transform&#93;
+</code></pre><p>The error map includes:</p><ul><li><code>:cell-name</code> — workflow cell name (e.g., <code>:step-b</code>)</li><li><code>:cell-id</code> — cell spec ID (e.g., <code>:app/step-b</code>)</li><li><code>:failed-keys</code> — per-key diagnostics with actual value, Java type, and Malli message</li><li><code>:cell-path</code> — cells that ran successfully before the failure</li><li><code>:message</code> — human-readable summary with cell name and failing keys<h2></h2></li></ul><h2 id="combine&#95;timeouts&#95;with&#95;fallback&#95;logic">Combine Timeouts with Fallback Logic</h2><p><strong>Problem:</strong> A cell should try a fast path, fall back to a slower path on timeout, and fail gracefully if both timeout.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start    :data/fetch-primary
+           :slow     :data/fetch-secondary
+           :process  :data/process
+           :fallback :data/use-cached}
+
+   :edges {:start   {:done :process, :timeout :slow}
+           :slow    {:done :process, :timeout :fallback}
+           :process :end
+           :fallback :end}
+
+   :dispatches {:start &#91;&#91;:done &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/timeout d&#41;&#41;&#41;&#93;&#93;
+                :slow  &#91;&#91;:done &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/timeout d&#41;&#41;&#41;&#93;&#93;}
+
+   :timeouts {:start 2000     ;; 2s for primary
+              :slow  10000}}&#41; ;; 10s for secondary
+</code></pre><p>Graph-level <code>:timeouts</code> route to a fallback cell via the <code>:timeout</code> dispatch (auto-injected). This is different from resilience <code>:timeout</code> which sets <code>:mycelium/resilience-error</code>.<h2></h2></p><h2 id="common&#95;patterns">Common Patterns</h2><h3 id="errors&#95;are&#95;data,&#95;not&#95;exceptions">Errors Are Data, Not Exceptions</h3><p>Expected failure conditions should be keys on the data map, routed via dispatch predicates:</p><pre><code class="clojure">;; Cell sets a status key
 &#40;fn &#91;resources data&#93;
   &#40;let &#91;result &#40;charge-card resources &#40;:card data&#41; &#40;:total data&#41;&#41;&#93;
     {:payment-status &#40;if &#40;:success result&#41; :approved :declined&#41;}&#41;&#41;
