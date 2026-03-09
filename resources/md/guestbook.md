@@ -125,18 +125,17 @@ The `workflows` namespace is where Mycelium workflow definitions live. Workflows
 
 Mycelium applications are built from two core concepts:
 
-**Cells** represent individual steps in a workflow, similar to microservices. Each cell can do IO and produce side effects, and the state it returns is used by the workflow engine to decide which cell to run next. Cells have explicit input/output schemas and are registered via `defmethod`, receiving a resources map and a data map:
+**Cells** represent individual steps in a workflow, similar to microservices. Each cell can do IO and produce side effects, and the state it returns is used by the workflow engine to decide which cell to run next. Cells have explicit input/output schemas and are registered via `cell/defcell`, receiving a resources map and a data map:
 
 ```clojure
-(defmethod cell/cell-spec :request/parse-home [_]
-  {:id      :request/parse-home
-   :doc     "Extract name parameter from the HTTP request"
-   :handler (fn [_resources data]
-              (let [params (get-in data [:http-request :query-params])
-                    name   (or (get params "name") "World")]
-                (assoc data :name name)))
-   :schema  {:input  [:map [:http-request :map]]
-             :output [:map [:name :string]]}})
+(cell/defcell :request/parse-home
+  {:input  [:map [:http-request :map]]
+   :output [:map [:name :string]]
+   :doc    "Extract name parameter from the HTTP request"}
+  (fn [_resources data]
+    (let [params (get-in data [:http-request :query-params])
+          name   (or (get params "name") "World")]
+      {:name name})))
 ```
 
 The `:schema` map declares what data the cell expects (`:input`) and what it produces (`:output`). These schemas use [Malli](https://github.com/metosin/malli) and are validated at compile time.
@@ -288,27 +287,23 @@ Now let's define the cells for our guestbook. Create a new file at `src/clj/your
             [next.jdbc.result-set :as rs]
             [selmer.parser :as selmer]))
 
-(defmethod cell/cell-spec :guestbook/load-messages [_]
-  {:id       :guestbook/load-messages
+(cell/defcell :guestbook/load-messages
+  {:input    [:map]
+   :output   [:map [:messages [:sequential :map]]]
    :doc      "Load all guestbook messages from the database"
-   :requires [:db]
-   :handler  (fn [{:keys [db]} data]
-               (assoc data :messages
-                      (jdbc/execute! db
-                        ["SELECT * FROM guestbook ORDER BY timestamp DESC"]
-                        {:builder-fn rs/as-unqualified-maps})))
-   :schema   {:input  [:map]
-              :output [:map [:messages [:sequential :map]]]}})
+   :requires [:db]}
+  (fn [{:keys [db]} _data]
+    {:messages (jdbc/execute! db
+                 ["SELECT * FROM guestbook ORDER BY timestamp DESC"]
+                 {:builder-fn rs/as-unqualified-maps})}))
 
-(defmethod cell/cell-spec :page/render-guestbook [_]
-  {:id      :page/render-guestbook
-   :doc     "Render the guestbook page with messages"
-   :handler (fn [_resources data]
-              (assoc data :html
-                     (selmer/render-file "html/guestbook.html"
-                                         {:messages (:messages data)})))
-   :schema  {:input  [:map [:messages [:sequential :map]]]
-             :output [:map [:html :string]]}})
+(cell/defcell :page/render-guestbook
+  {:input  [:map [:messages [:sequential :map]]]
+   :output [:map [:html :string]]
+   :doc    "Render the guestbook page with messages"}
+  (fn [_resources data]
+    {:html (selmer/render-file "html/guestbook.html"
+                                {:messages (:messages data)})}))
 ```
 
 The `:guestbook/load-messages` cell declares `:requires [:db]`, which means it expects a `:db` key in its resources map. We use `rs/as-unqualified-maps` so that result columns are returned as simple keys like `:name` and `:message` rather than qualified keys like `:guestbook/name`.
