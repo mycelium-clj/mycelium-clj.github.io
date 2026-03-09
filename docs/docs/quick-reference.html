@@ -440,13 +440,12 @@
 &#40;sys/route-resources system &quot;/route&quot;&#41;   ;; =&gt; #{:db}
 &#40;sys/schema-conflicts system&#41;           ;; =&gt; &#91;{:cell-id ... :routes ...}&#93;
 &#40;sys/system-&gt;dot system&#41;                ;; =&gt; DOT graph string
-</code></pre><h2 id="halt&#95;&&#95;resume&#95;(human-in-the-loop)">Halt & Resume (Human-in-the-Loop)</h2><p>A cell can pause the workflow by returning <code>:mycelium/halt</code> in its data. The workflow halts after that cell, preserving all accumulated data and trace. A human (or external process) can later resume the workflow from where it stopped.</p><h3 id="halting">Halting</h3><pre><code class="clojure">;; Cell signals halt by assoc'ing :mycelium/halt into data
-&#40;defmethod cell/cell-spec :review/check &#91;&#95;&#93;
-  {:id      :review/check
-   :handler &#40;fn &#91;&#95; data&#93;
-              &#40;assoc data :mycelium/halt {:reason :needs-approval
-                                          :item   &#40;:item-id data&#41;}&#41;&#41;
-   :schema  {:input &#91;:map &#91;:item-id :string&#93;&#93; :output &#91;:map&#93;}}&#41;
+</code></pre><h2 id="halt&#95;&&#95;resume&#95;(human-in-the-loop)">Halt & Resume (Human-in-the-Loop)</h2><p>A cell can pause the workflow by returning <code>:mycelium/halt</code> in its data. The workflow halts after that cell, preserving all accumulated data and trace. A human (or external process) can later resume the workflow from where it stopped.</p><h3 id="halting">Halting</h3><pre><code class="clojure">;; Cell signals halt by returning :mycelium/halt in its output
+&#40;cell/defcell :review/check
+  {:input &#91;:map &#91;:item-id :string&#93;&#93; :output &#91;:map&#93;}
+  &#40;fn &#91;&#95; data&#93;
+    {:mycelium/halt {:reason :needs-approval
+                     :item   &#40;:item-id data&#41;}}&#41;&#41;
 </code></pre><p><code>:mycelium/halt</code> can be <code>true</code> or a map with context for the human reviewer.</p><h3 id="resuming">Resuming</h3><pre><code class="clojure">&#40;let &#91;compiled &#40;myc/pre-compile workflow-def&#41;
       halted   &#40;myc/run-compiled compiled resources {:item-id &quot;X&quot;}&#41;
       ;; halted contains :mycelium/halt and :mycelium/resume

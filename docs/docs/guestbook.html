@@ -99,15 +99,14 @@ cd guestbook
 │           └── env.clj
 └── test/clj/yourname/guestbook/
     └── core&#95;test.clj
-</code></pre><p>Let's take a look at what the files in the root folder of the application do:</p><ul><li><code>deps.edn</code> - used to manage the project configuration and dependencies</li><li><code>resources/system.edn</code> - used for system configuration with <a href='https://github.com/weavejester/integrant'>Integrant</a> and <a href='https://github.com/juxt/aero'>Aero</a></li><li><code>.gitignore</code> - a list of assets, such as build-generated files, to exclude from Git</li></ul><h3 id="the&#95;source&#95;directory">The Source Directory</h3><p>All our code lives under the <code>src/clj</code> folder. Since our application is called yourname/guestbook, this is the root namespace for the project. Let's take a look at all the namespaces that have been created for us.</p><h4 id="guestbook">guestbook</h4><ul><li><code>config.clj</code> - this is the place where your <code>system.edn</code> is read in to create an Integrant configuration map</li><li><code>core.clj</code> - this is the entry point for the application that contains the logic for starting and stopping the server</li></ul><h4 id="guestbook.web">guestbook.web</h4><p>The <code>web</code> namespace is used to define the edges of your application that deal with server communication, such as receiving HTTP requests and returning responses.</p><ul><li><code>handler.clj</code> - defines the Ring handler and router configuration</li><li><code>middleware/core.clj</code> - an aggregate of default middleware and environment-specific middleware</li><li><code>routes/pages.clj</code> - HTTP routes wired to Mycelium workflows</li></ul><h4 id="guestbook.cells">guestbook.cells</h4><p>The <code>cells</code> namespace is where Mycelium cell definitions live. Cells are functions with explicit input/output schemas. You can think of them as being akin to microservices. Each one accepts resources and a state map, then returns a new state that propagates in the workflow. These functions can do IO and produce side effects.</p><ul><li><code>home.clj</code> - cell definitions for the default home page</li></ul><h4 id="guestbook.workflows">guestbook.workflows</h4><p>The <code>workflows</code> namespace is where Mycelium workflow definitions live. Workflows compose cells into directed graphs.</p><ul><li><code>home.clj</code> - the home page workflow (a pipeline of cells)</li></ul><h3 id="understanding&#95;cells&#95;and&#95;workflows">Understanding Cells and Workflows</h3><p>Mycelium applications are built from two core concepts:</p><p><strong>Cells</strong> represent individual steps in a workflow, similar to microservices. Each cell can do IO and produce side effects, and the state it returns is used by the workflow engine to decide which cell to run next. Cells have explicit input/output schemas and are registered via <code>defmethod</code>, receiving a resources map and a data map:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :request/parse-home &#91;&#95;&#93;
-  {:id      :request/parse-home
-   :doc     &quot;Extract name parameter from the HTTP request&quot;
-   :handler &#40;fn &#91;&#95;resources data&#93;
-              &#40;let &#91;params &#40;get-in data &#91;:http-request :query-params&#93;&#41;
-                    name   &#40;or &#40;get params &quot;name&quot;&#41; &quot;World&quot;&#41;&#93;
-                &#40;assoc data :name name&#41;&#41;&#41;
-   :schema  {:input  &#91;:map &#91;:http-request :map&#93;&#93;
-             :output &#91;:map &#91;:name :string&#93;&#93;}}&#41;
+</code></pre><p>Let's take a look at what the files in the root folder of the application do:</p><ul><li><code>deps.edn</code> - used to manage the project configuration and dependencies</li><li><code>resources/system.edn</code> - used for system configuration with <a href='https://github.com/weavejester/integrant'>Integrant</a> and <a href='https://github.com/juxt/aero'>Aero</a></li><li><code>.gitignore</code> - a list of assets, such as build-generated files, to exclude from Git</li></ul><h3 id="the&#95;source&#95;directory">The Source Directory</h3><p>All our code lives under the <code>src/clj</code> folder. Since our application is called yourname/guestbook, this is the root namespace for the project. Let's take a look at all the namespaces that have been created for us.</p><h4 id="guestbook">guestbook</h4><ul><li><code>config.clj</code> - this is the place where your <code>system.edn</code> is read in to create an Integrant configuration map</li><li><code>core.clj</code> - this is the entry point for the application that contains the logic for starting and stopping the server</li></ul><h4 id="guestbook.web">guestbook.web</h4><p>The <code>web</code> namespace is used to define the edges of your application that deal with server communication, such as receiving HTTP requests and returning responses.</p><ul><li><code>handler.clj</code> - defines the Ring handler and router configuration</li><li><code>middleware/core.clj</code> - an aggregate of default middleware and environment-specific middleware</li><li><code>routes/pages.clj</code> - HTTP routes wired to Mycelium workflows</li></ul><h4 id="guestbook.cells">guestbook.cells</h4><p>The <code>cells</code> namespace is where Mycelium cell definitions live. Cells are functions with explicit input/output schemas. You can think of them as being akin to microservices. Each one accepts resources and a state map, then returns a new state that propagates in the workflow. These functions can do IO and produce side effects.</p><ul><li><code>home.clj</code> - cell definitions for the default home page</li></ul><h4 id="guestbook.workflows">guestbook.workflows</h4><p>The <code>workflows</code> namespace is where Mycelium workflow definitions live. Workflows compose cells into directed graphs.</p><ul><li><code>home.clj</code> - the home page workflow (a pipeline of cells)</li></ul><h3 id="understanding&#95;cells&#95;and&#95;workflows">Understanding Cells and Workflows</h3><p>Mycelium applications are built from two core concepts:</p><p><strong>Cells</strong> represent individual steps in a workflow, similar to microservices. Each cell can do IO and produce side effects, and the state it returns is used by the workflow engine to decide which cell to run next. Cells have explicit input/output schemas and are registered via <code>cell/defcell</code>, receiving a resources map and a data map:</p><pre><code class="clojure">&#40;cell/defcell :request/parse-home
+  {:input  &#91;:map &#91;:http-request :map&#93;&#93;
+   :output &#91;:map &#91;:name :string&#93;&#93;
+   :doc    &quot;Extract name parameter from the HTTP request&quot;}
+  &#40;fn &#91;&#95;resources data&#93;
+    &#40;let &#91;params &#40;get-in data &#91;:http-request :query-params&#93;&#41;
+          name   &#40;or &#40;get params &quot;name&quot;&#41; &quot;World&quot;&#41;&#93;
+      {:name name}&#41;&#41;&#41;
 </code></pre><p>The <code>:schema</code> map declares what data the cell expects (<code>:input</code>) and what it produces (<code>:output</code>). These schemas use <a href='https://github.com/metosin/malli'>Malli</a> and are validated at compile time.</p><p><strong>Workflows</strong> compose cells into directed graphs. The simplest form is a <code>:pipeline</code>:</p><pre><code class="clojure">&#40;def workflow-def
   {:cells    {:start  :request/parse-home
               :render :page/render-home}
@@ -156,27 +155,23 @@ org.xerial/sqlite-jdbc            {:mvn/version &quot;3.45.3.0&quot;}
             &#91;next.jdbc.result-set :as rs&#93;
             &#91;selmer.parser :as selmer&#93;&#41;&#41;
 
-&#40;defmethod cell/cell-spec :guestbook/load-messages &#91;&#95;&#93;
-  {:id       :guestbook/load-messages
+&#40;cell/defcell :guestbook/load-messages
+  {:input    &#91;:map&#93;
+   :output   &#91;:map &#91;:messages &#91;:sequential :map&#93;&#93;&#93;
    :doc      &quot;Load all guestbook messages from the database&quot;
-   :requires &#91;:db&#93;
-   :handler  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
-               &#40;assoc data :messages
-                      &#40;jdbc/execute! db
-                        &#91;&quot;SELECT &#42; FROM guestbook ORDER BY timestamp DESC&quot;&#93;
-                        {:builder-fn rs/as-unqualified-maps}&#41;&#41;&#41;
-   :schema   {:input  &#91;:map&#93;
-              :output &#91;:map &#91;:messages &#91;:sequential :map&#93;&#93;&#93;}}&#41;
+   :requires &#91;:db&#93;}
+  &#40;fn &#91;{:keys &#91;db&#93;} &#95;data&#93;
+    {:messages &#40;jdbc/execute! db
+                 &#91;&quot;SELECT &#42; FROM guestbook ORDER BY timestamp DESC&quot;&#93;
+                 {:builder-fn rs/as-unqualified-maps}&#41;}&#41;&#41;
 
-&#40;defmethod cell/cell-spec :page/render-guestbook &#91;&#95;&#93;
-  {:id      :page/render-guestbook
-   :doc     &quot;Render the guestbook page with messages&quot;
-   :handler &#40;fn &#91;&#95;resources data&#93;
-              &#40;assoc data :html
-                     &#40;selmer/render-file &quot;html/guestbook.html&quot;
-                                         {:messages &#40;:messages data&#41;}&#41;&#41;&#41;
-   :schema  {:input  &#91;:map &#91;:messages &#91;:sequential :map&#93;&#93;&#93;
-             :output &#91;:map &#91;:html :string&#93;&#93;}}&#41;
+&#40;cell/defcell :page/render-guestbook
+  {:input  &#91;:map &#91;:messages &#91;:sequential :map&#93;&#93;&#93;
+   :output &#91;:map &#91;:html :string&#93;&#93;
+   :doc    &quot;Render the guestbook page with messages&quot;}
+  &#40;fn &#91;&#95;resources data&#93;
+    {:html &#40;selmer/render-file &quot;html/guestbook.html&quot;
+                                {:messages &#40;:messages data&#41;}&#41;}&#41;&#41;
 </code></pre><p>The <code>:guestbook/load-messages</code> cell declares <code>:requires &#91;:db&#93;</code>, which means it expects a <code>:db</code> key in its resources map. We use <code>rs/as-unqualified-maps</code> so that result columns are returned as simple keys like <code>:name</code> and <code>:message</code> rather than qualified keys like <code>:guestbook/name</code>.</p><p>The <code>:page/render-guestbook</code> cell takes the loaded messages and renders a <a href='https://github.com/yogthos/Selmer'>Selmer</a> template.</p><h3 id="creating&#95;the&#95;guestbook&#95;workflow">Creating the Guestbook Workflow</h3><p>Create the workflow at <code>src/clj/yourname/guestbook/workflows/guestbook.clj</code>:</p><pre><code class="clojure">&#40;ns yourname.guestbook.workflows.guestbook
   &#40;:require &#91;mycelium.core :as myc&#93;
             ;; Load cell definitions
