@@ -208,7 +208,7 @@
    :timeouts {:fetch 5000}}&#41;  ;; milliseconds
 </code></pre><p>Graph-level timeouts <strong>route</strong> to a fallback cell. Resilience timeouts <strong>error</strong>. The <code>:timeout</code> dispatch predicate is auto-injected and evaluated first. Output schema validation is skipped for timed-out cells.<h2></h2></p><h2 id="inspect&#95;errors&#95;uniformly">Inspect Errors Uniformly</h2><p><strong>Problem:</strong> Mycelium has 6 different error keys. You want one check.</p><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow wf resources data&#41;&#93;
   &#40;if &#40;myc/error? result&#41;
-    &#40;let &#91;{:keys &#91;error-type cell-id cell message details&#93;} &#40;myc/workflow-error result&#41;&#93;
+    &#40;let &#91;{:keys &#91;error-type cell-id cell-name cell message details&#93;} &#40;myc/workflow-error result&#41;&#93;
       &#40;case error-type
         :schema/input   &#40;log/warn &quot;Bad input at&quot; cell-id&#41;
         :schema/output  &#40;log/warn &quot;Bad output at&quot; cell-id&#41;
@@ -219,7 +219,7 @@
         ;; :resilience/bulkhead-full, :resilience/rate-limited
         &#40;log/error &quot;Resilience error:&quot; error-type cell&#41;&#41;&#41;
     &#40;handle-success result&#41;&#41;&#41;
-</code></pre><p><code>workflow-error</code> returns nil on success, or a map with <code>:error-type</code>, <code>:message</code>, <code>:details</code> (plus <code>:cell-id</code>, <code>:cell</code>, <code>:cell-path</code>, <code>:failed-keys</code> where applicable).<h2></h2></p><h2 id="write&#95;a&#95;cell">Write a Cell</h2><p><strong>Problem:</strong> You need to implement a cell with explicit input/output contracts.</p><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;&#41;
+</code></pre><p><code>workflow-error</code> returns nil on success, or a map with <code>:error-type</code>, <code>:message</code>, <code>:details</code> (plus <code>:cell-id</code>, <code>:cell-name</code>, <code>:cell</code>, <code>:cell-path</code>, <code>:failed-keys</code> where applicable). The <code>:message</code> includes the cell name and specific failing keys for easy diagnosis.<h2></h2></p><h2 id="write&#95;a&#95;cell">Write a Cell</h2><p><strong>Problem:</strong> You need to implement a cell with explicit input/output contracts.</p><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;&#41;
 
 &#40;defmethod cell/cell-spec :order/compute-tax &#91;&#95;&#93;
   {:id      :order/compute-tax
