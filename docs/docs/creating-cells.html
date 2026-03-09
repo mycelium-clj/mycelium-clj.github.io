@@ -59,20 +59,31 @@
       <h1>Creating Cells</h1>
       
       <h2>Contents</h2>
-      <ol class="contents"><li><a href="#creating_cells">Creating Cells</a></li><li><a href="#cell_registration">Cell Registration</a></li><li><a href="#cell_spec_fields">Cell Spec Fields</a></li><li><a href="#handler_signature">Handler Signature</a></li><li><a href="#output_schema_formats">Output Schema Formats</a></li><li><a href="#rules">Rules</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li><li><a href="#common_patterns">Common Patterns</a><ol><li><a href="#resource-dependent_cell">Resource-dependent cell</a></li><li><a href="#async_cell_(external_api_call)">Async cell (external API call)</a></li></ol></li></ol>
+      <ol class="contents"><li><a href="#creating_cells">Creating Cells</a></li><li><a href="#cell_registration">Cell Registration</a><ol><li><a href="#defcell_(recommended)">defcell (recommended)</a></li><li><a href="#defmethod_(low-level)">defmethod (low-level)</a></li></ol></li><li><a href="#cell_spec_fields">Cell Spec Fields</a></li><li><a href="#handler_signature">Handler Signature</a></li><li><a href="#output_schema_formats">Output Schema Formats</a></li><li><a href="#rules">Rules</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li><li><a href="#common_patterns">Common Patterns</a><ol><li><a href="#resource-dependent_cell">Resource-dependent cell</a></li><li><a href="#async_cell_(external_api_call)">Async cell (external API call)</a></li><li><a href="#scaffolding_cells_from_a_workflow">Scaffolding cells from a workflow</a></li></ol></li></ol>
       
       <div id="content">
-        <h1 id="creating&#95;cells">Creating Cells</h1><p>Cells are the atomic units of Mycelium. Each cell is a pure function with explicit schema contracts.</p><h2 id="cell&#95;registration">Cell Registration</h2><p>Register cells via <code>defmethod</code> on the <code>cell/cell-spec</code> multimethod:</p><pre><code class="clojure">&#40;ns my-app.cells.auth
+        <h1 id="creating&#95;cells">Creating Cells</h1><p>Cells are the atomic units of Mycelium. Each cell is a pure function with explicit schema contracts.</p><h2 id="cell&#95;registration">Cell Registration</h2><h3 id="defcell&#95;(recommended)">defcell (recommended)</h3><p>Register cells via <code>cell/defcell</code>. The cell ID is specified once — no duplication:</p><pre><code class="clojure">&#40;ns my-app.cells.auth
   &#40;:require &#91;mycelium.cell :as cell&#93;&#41;&#41;
 
-&#40;defmethod cell/cell-spec :auth/parse-request &#91;&#95;&#93;
+&#40;cell/defcell :auth/parse-request
+  {:input  &#91;:map &#91;:http-request &#91;:map &#91;:body map?&#93;&#93;&#93;&#93;
+   :output {:success &#91;:map &#91;:auth-token :string&#93;&#93;
+            :failure &#91;:map &#91;:error-type :keyword&#93;
+                           &#91;:error-message :string&#93;&#93;}}
+  &#40;fn &#91;&#95;resources data&#93;
+    &#40;let &#91;body &#40;get-in data &#91;:http-request :body&#93;&#41;&#93;
+      &#40;if-let &#91;token &#40;get body &quot;auth-token&quot;&#41;&#93;
+        {:auth-token token}
+        {:error-type :missing-token
+         :error-message &quot;No auth token provided&quot;}&#41;&#41;&#41;&#41;
+</code></pre><h3 id="defmethod&#95;(low-level)">defmethod (low-level)</h3><p>The raw multimethod approach requires specifying the ID twice:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :auth/parse-request &#91;&#95;&#93;
   {:id       :auth/parse-request
    :handler  &#40;fn &#91;&#95;resources data&#93;
                &#40;let &#91;body &#40;get-in data &#91;:http-request :body&#93;&#41;&#93;
                  &#40;if-let &#91;token &#40;get body &quot;auth-token&quot;&#41;&#93;
-                   &#40;assoc data :auth-token token&#41;
-                   &#40;assoc data :error-type :missing-token
-                               :error-message &quot;No auth token provided&quot;&#41;&#41;&#41;&#41;
+                   {:auth-token token}
+                   {:error-type :missing-token
+                    :error-message &quot;No auth token provided&quot;}&#41;&#41;&#41;
    :schema   {:input  &#91;:map &#91;:http-request &#91;:map &#91;:body map?&#93;&#93;&#93;&#93;
               :output {:success &#91;:map &#91;:auth-token :string&#93;&#93;
                        :failure &#91;:map &#91;:error-type :keyword&#93;
@@ -83,7 +94,7 @@
 </code></pre></p><ul><li><code>callback</code>: call with <code>&#40;callback updated-data&#41;</code> on success</li><li><code>error-callback</code>: call with <code>&#40;error-callback exception&#41;</code> on failure</li></ul><h2 id="output&#95;schema&#95;formats">Output Schema Formats</h2><p><strong>Single schema</strong> — all transitions must satisfy it:<pre><code class="clojure">:output &#91;:map &#91;:result :int&#93;&#93;
 </code></pre></p><p><strong>Per-transition schemas</strong> — each dispatch transition has its own contract:<pre><code class="clojure">:output {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
          :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}
-</code></pre></p><p>The transition keys in the output map must match the dispatch labels defined in the workflow's <code>:dispatches</code> for this cell.</p><h2 id="rules">Rules</h2><ol><li>Cells must return the data map with computed values added (use <code>assoc</code>, not <code>select-keys</code>)</li><li>Output must satisfy the declared <code>:output</code> schema for the matched transition</li><li>Never import or call other cells — cells are isolated by design</li><li>Use only resources passed via the first argument — never acquire external dependencies directly</li><li>The <code>:id</code> used in <code>defmethod</code> must match the <code>:id</code> in the spec map</li></ol><h2 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h2><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+</code></pre></p><p>The transition keys in the output map must match the dispatch labels defined in the workflow's <code>:dispatches</code> for this cell.</p><h2 id="rules">Rules</h2><ol><li>Return only new/changed keys — key propagation (on by default) merges input automatically</li><li>Output must satisfy the declared <code>:output</code> schema for the matched transition</li><li>Never import or call other cells — cells are isolated by design</li><li>Use only resources passed via the first argument — never acquire external dependencies directly</li><li>Cell handlers must return a map (not nil) — return <code>{}</code> if the cell adds nothing</li></ol><h2 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h2><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
 
 ;; Basic test
 &#40;dev/test-cell :auth/parse-request
@@ -99,29 +110,31 @@
                 &#91;:failure &#40;fn &#91;d&#93; &#40;:error-type d&#41;&#41;&#93;&#93;
    :expected-dispatch :success}&#41;
 ;; =&gt; {:pass? true, :matched-dispatch :success, ...}
-</code></pre><h2 id="common&#95;patterns">Common Patterns</h2><h3 id="resource-dependent&#95;cell">Resource-dependent cell</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :user/fetch-profile &#91;&#95;&#93;
-  {:id       :user/fetch-profile
-   :handler  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
-               &#40;if-let &#91;profile &#40;db/get-user db &#40;:user-id data&#41;&#41;&#93;
-                 &#40;assoc data :profile profile&#41;
-                 &#40;assoc data :error-type :not-found
-                             :error-message &quot;User not found&quot;&#41;&#41;&#41;
-   :schema   {:input  &#91;:map &#91;:user-id :string&#93;&#93;
-              :output {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
-                       :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}}
-   :requires &#91;:db&#93;}&#41;
-</code></pre><h3 id="async&#95;cell&#95;(external&#95;api&#95;call)">Async cell (external API call)</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :api/fetch-data &#91;&#95;&#93;
-  {:id       :api/fetch-data
-   :handler  &#40;fn &#91;&#95;resources data callback error-callback&#93;
-               &#40;future
-                 &#40;try
-                   &#40;let &#91;resp &#40;http/get &#40;:url data&#41;&#41;&#93;
-                     &#40;callback &#40;assoc data :response resp&#41;&#41;&#41;
-                   &#40;catch Exception e
-                     &#40;error-callback e&#41;&#41;&#41;&#41;&#41;
-   :schema   {:input  &#91;:map &#91;:url :string&#93;&#93;
-              :output &#91;:map &#91;:response map?&#93;&#93;}
-   :async?   true}&#41;
+</code></pre><h2 id="common&#95;patterns">Common Patterns</h2><h3 id="resource-dependent&#95;cell">Resource-dependent cell</h3><pre><code class="clojure">&#40;cell/defcell :user/fetch-profile
+  {:input    &#91;:map &#91;:user-id :string&#93;&#93;
+   :output   {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
+              :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}
+   :requires &#91;:db&#93;}
+  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
+    &#40;if-let &#91;profile &#40;db/get-user db &#40;:user-id data&#41;&#41;&#93;
+      {:profile profile}
+      {:error-type :not-found
+       :error-message &quot;User not found&quot;}&#41;&#41;&#41;
+</code></pre><h3 id="async&#95;cell&#95;(external&#95;api&#95;call)">Async cell (external API call)</h3><pre><code class="clojure">&#40;cell/defcell :api/fetch-data
+  {:input  &#91;:map &#91;:url :string&#93;&#93;
+   :output &#91;:map &#91;:response map?&#93;&#93;
+   :async? true}
+  &#40;fn &#91;&#95;resources data callback error-callback&#93;
+    &#40;future
+      &#40;try
+        &#40;let &#91;resp &#40;http/get &#40;:url data&#41;&#41;&#93;
+          &#40;callback {:response resp}&#41;&#41;
+        &#40;catch Exception e
+          &#40;error-callback e&#41;&#41;&#41;&#41;&#41;&#41;
+</code></pre><h3 id="scaffolding&#95;cells&#95;from&#95;a&#95;workflow">Scaffolding cells from a workflow</h3><p>Use <code>generate-stubs</code> to get pre-wired cell definitions from your workflow:</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+&#40;println &#40;dev/generate-stubs workflow-def&#41;&#41;
+;; Prints defcell forms with schemas and TODO handlers — fill in the logic
 </code></pre>
       </div>
     </div>

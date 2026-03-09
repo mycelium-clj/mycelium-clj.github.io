@@ -59,7 +59,7 @@
       <h1>Cookbook</h1>
       
       <h2>Contents</h2>
-      <ol class="contents"><li><a href="#mycelium_cookbook">Mycelium Cookbook</a></li><li><a href="#build_a_linear_pipeline">Build a Linear Pipeline</a></li><li><a href="#add_branching_logic">Add Branching Logic</a></li><li><a href="#add_a_catch-all_fallback">Add a Catch-All Fallback</a></li><li><a href="#run_steps_in_parallel_(fork-join)">Run Steps in Parallel (Fork-Join)</a></li><li><a href="#handle_errors_across_multiple_cells">Handle Errors Across Multiple Cells</a></li><li><a href="#add_a_human_approval_gate_(halt/resume)">Add a Human Approval Gate (Halt/Resume)</a><ol><li><a href="#persisting_halted_state_across_sessions">Persisting Halted State Across Sessions</a></li></ol></li><li><a href="#wrap_a_workflow_as_a_reusable_cell">Wrap a Workflow as a Reusable Cell</a></li><li><a href="#protect_against_external_service_failures">Protect Against External Service Failures</a></li><li><a href="#add_a_timeout_to_a_cell">Add a Timeout to a Cell</a></li><li><a href="#inspect_errors_uniformly">Inspect Errors Uniformly</a></li><li><a href="#write_a_cell">Write a Cell</a><ol><li><a href="#async_cell">Async Cell</a></li><li><a href="#parameterized_cell">Parameterized Cell</a></li></ol></li><li><a href="#test_a_cell_in_isolation">Test a Cell in Isolation</a></li><li><a href="#debug_workflow_execution">Debug Workflow Execution</a><ol><li><a href="#live_tracing_(repl)">Live Tracing (REPL)</a></li><li><a href="#post-run_trace_inspection">Post-Run Trace Inspection</a></li></ol></li><li><a href="#reshape_data_between_cells_(edge_transforms)">Reshape Data Between Cells (Edge Transforms)</a><ol><li><a href="#branching_cells_with_different_downstream_contracts">Branching Cells with Different Downstream Contracts</a></li><li><a href="#input_transform_(reshape_before_cell_runs)">Input Transform (reshape before cell runs)</a></li><li><a href="#when_to_use_transforms_vs._adding_a_cell">When to Use Transforms vs. Adding a Cell</a></li></ol></li><li><a href="#handle_type_mismatches_between_cells">Handle Type Mismatches Between Cells</a></li><li><a href="#serve_a_workflow_as_a_ring_handler">Serve a Workflow as a Ring Handler</a></li><li><a href="#validate_workflow_structure_at_compile_time">Validate Workflow Structure at Compile Time</a></li><li><a href="#share_workflow_logic_with_fragments">Share Workflow Logic with Fragments</a></li><li><a href="#analyze_a_workflow_before_running_it">Analyze a Workflow Before Running It</a></li><li><a href="#pre-compile_for_production">Pre-Compile for Production</a></li><li><a href="#use_interceptors_for_cross-cutting_concerns">Use Interceptors for Cross-Cutting Concerns</a></li><li><a href="#generate_llm_briefs_for_agent_orchestration">Generate LLM Briefs for Agent Orchestration</a></li><li><a href="#recover_from_individual_cell_failures">Recover From Individual Cell Failures</a></li><li><a href="#route_a_multi-way_decision">Route a Multi-Way Decision</a></li><li><a href="#handle_partial_failures_in_parallel_joins">Handle Partial Failures in Parallel Joins</a><ol><li><a href="#resolving_output_key_conflicts">Resolving Output Key Conflicts</a></li></ol></li><li><a href="#sequential_join_for_ordered_dependencies">Sequential Join for Ordered Dependencies</a></li><li><a href="#build_a_decision_chain_(if/else-if/else)">Build a Decision Chain (If/Else-If/Else)</a></li><li><a href="#pass_external_dependencies_via_resources">Pass External Dependencies via Resources</a><ol><li><a href="#per-request_resources">Per-Request Resources</a></li></ol></li><li><a href="#manage_data_flow_across_cells">Manage Data Flow Across Cells</a><ol><li><a href="#key_propagation_(default:_on)">Key Propagation (Default: On)</a></li><li><a href="#design_schema_chains">Design Schema Chains</a></li><li><a href="#explicit_control">Explicit Control</a></li></ol></li><li><a href="#validate_workflow_input_before_running">Validate Workflow Input Before Running</a></li><li><a href="#diagnose_schema_failures">Diagnose Schema Failures</a></li><li><a href="#combine_timeouts_with_fallback_logic">Combine Timeouts with Fallback Logic</a></li><li><a href="#common_patterns">Common Patterns</a><ol><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#manifest-first_design">Manifest-First Design</a></li><li><a href="#cell_output_with_key_propagation">Cell Output With Key Propagation</a></li></ol></li></ol>
+      <ol class="contents"><li><a href="#mycelium_cookbook">Mycelium Cookbook</a></li><li><a href="#build_a_linear_pipeline">Build a Linear Pipeline</a></li><li><a href="#add_branching_logic">Add Branching Logic</a></li><li><a href="#add_a_catch-all_fallback">Add a Catch-All Fallback</a></li><li><a href="#run_steps_in_parallel_(fork-join)">Run Steps in Parallel (Fork-Join)</a></li><li><a href="#handle_errors_across_multiple_cells">Handle Errors Across Multiple Cells</a></li><li><a href="#add_a_human_approval_gate_(halt/resume)">Add a Human Approval Gate (Halt/Resume)</a><ol><li><a href="#persisting_halted_state_across_sessions">Persisting Halted State Across Sessions</a></li></ol></li><li><a href="#wrap_a_workflow_as_a_reusable_cell">Wrap a Workflow as a Reusable Cell</a></li><li><a href="#protect_against_external_service_failures">Protect Against External Service Failures</a></li><li><a href="#add_a_timeout_to_a_cell">Add a Timeout to a Cell</a></li><li><a href="#inspect_errors_uniformly">Inspect Errors Uniformly</a></li><li><a href="#write_a_cell">Write a Cell</a><ol><li><a href="#async_cell">Async Cell</a></li><li><a href="#parameterized_cell">Parameterized Cell</a></li></ol></li><li><a href="#test_a_cell_in_isolation">Test a Cell in Isolation</a></li><li><a href="#debug_workflow_execution">Debug Workflow Execution</a><ol><li><a href="#live_tracing_(repl)">Live Tracing (REPL)</a></li><li><a href="#post-run_trace_inspection">Post-Run Trace Inspection</a></li></ol></li><li><a href="#reshape_data_between_cells_(edge_transforms)">Reshape Data Between Cells (Edge Transforms)</a><ol><li><a href="#branching_cells_with_different_downstream_contracts">Branching Cells with Different Downstream Contracts</a></li><li><a href="#input_transform_(reshape_before_cell_runs)">Input Transform (reshape before cell runs)</a></li><li><a href="#when_to_use_transforms_vs._adding_a_cell">When to Use Transforms vs. Adding a Cell</a></li></ol></li><li><a href="#handle_type_mismatches_between_cells">Handle Type Mismatches Between Cells</a></li><li><a href="#serve_a_workflow_as_a_ring_handler">Serve a Workflow as a Ring Handler</a></li><li><a href="#validate_workflow_structure_at_compile_time">Validate Workflow Structure at Compile Time</a></li><li><a href="#share_workflow_logic_with_fragments">Share Workflow Logic with Fragments</a></li><li><a href="#analyze_a_workflow_before_running_it">Analyze a Workflow Before Running It</a></li><li><a href="#scaffold_a_workflow_from_its_definition">Scaffold a Workflow from Its Definition</a></li><li><a href="#pre-compile_for_production">Pre-Compile for Production</a></li><li><a href="#use_interceptors_for_cross-cutting_concerns">Use Interceptors for Cross-Cutting Concerns</a></li><li><a href="#generate_llm_briefs_for_agent_orchestration">Generate LLM Briefs for Agent Orchestration</a></li><li><a href="#recover_from_individual_cell_failures">Recover From Individual Cell Failures</a></li><li><a href="#route_a_multi-way_decision">Route a Multi-Way Decision</a></li><li><a href="#handle_partial_failures_in_parallel_joins">Handle Partial Failures in Parallel Joins</a><ol><li><a href="#resolving_output_key_conflicts">Resolving Output Key Conflicts</a></li></ol></li><li><a href="#sequential_join_for_ordered_dependencies">Sequential Join for Ordered Dependencies</a></li><li><a href="#build_a_decision_chain_(if/else-if/else)">Build a Decision Chain (If/Else-If/Else)</a></li><li><a href="#pass_external_dependencies_via_resources">Pass External Dependencies via Resources</a><ol><li><a href="#per-request_resources">Per-Request Resources</a></li></ol></li><li><a href="#manage_data_flow_across_cells">Manage Data Flow Across Cells</a><ol><li><a href="#key_propagation_(default:_on)">Key Propagation (Default: On)</a></li><li><a href="#design_schema_chains">Design Schema Chains</a></li><li><a href="#explicit_control">Explicit Control</a></li></ol></li><li><a href="#validate_workflow_input_before_running">Validate Workflow Input Before Running</a></li><li><a href="#diagnose_schema_failures">Diagnose Schema Failures</a></li><li><a href="#combine_timeouts_with_fallback_logic">Combine Timeouts with Fallback Logic</a></li><li><a href="#common_patterns">Common Patterns</a><ol><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#manifest-first_design">Manifest-First Design</a></li><li><a href="#cell_output_with_key_propagation">Cell Output With Key Propagation</a></li></ol></li></ol>
       
       <div id="content">
         <h1 id="mycelium&#95;cookbook">Mycelium Cookbook</h1><p>Problem-oriented patterns for common workflow tasks. Each recipe shows the problem, the idiomatic solution, and the key details.<h2></h2></p><h2 id="build&#95;a&#95;linear&#95;pipeline">Build a Linear Pipeline</h2><p><strong>Problem:</strong> You have a sequence of steps that run one after another with no branching.</p><pre><code class="clojure">;; Use :pipeline shorthand — no :edges or :dispatches needed
@@ -221,29 +221,26 @@
     &#40;handle-success result&#41;&#41;&#41;
 </code></pre><p><code>workflow-error</code> returns nil on success, or a map with <code>:error-type</code>, <code>:message</code>, <code>:details</code> (plus <code>:cell-id</code>, <code>:cell-name</code>, <code>:cell</code>, <code>:cell-path</code>, <code>:failed-keys</code> where applicable). The <code>:message</code> includes the cell name and specific failing keys for easy diagnosis.<h2></h2></p><h2 id="write&#95;a&#95;cell">Write a Cell</h2><p><strong>Problem:</strong> You need to implement a cell with explicit input/output contracts.</p><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;&#41;
 
-&#40;defmethod cell/cell-spec :order/compute-tax &#91;&#95;&#93;
-  {:id      :order/compute-tax
-   :handler &#40;fn &#91;resources data&#93;
-              ;; With key propagation &#40;default&#41;: return only new keys
-              {:tax &#40;&#42; &#40;:subtotal data&#41; &#40;:tax-rate data&#41;&#41;}&#41;
-   :schema  {:input  &#91;:map &#91;:subtotal :double&#93; &#91;:tax-rate :double&#93;&#93;
-             :output &#91;:map &#91;:tax :double&#93;&#93;}}&#41;
-</code></pre><p>Key propagation is on by default — handler output is merged with input, so you only return new or changed keys. To return all keys explicitly, disable with <code>{:propagate-keys? false}</code>.</p><h3 id="async&#95;cell">Async Cell</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :api/fetch &#91;&#95;&#93;
-  {:id      :api/fetch
-   :async?  true
-   :handler &#40;fn &#91;resources data callback error-callback&#93;
-              &#40;http/get &#40;:url data&#41;
-                {:on-success &#40;fn &#91;resp&#93; &#40;callback {:response-body &#40;:body resp&#41;}&#41;&#41;
-                 :on-error   &#40;fn &#91;err&#93; &#40;error-callback err&#41;&#41;}&#41;&#41;
-   :schema  {:input  &#91;:map &#91;:url :string&#93;&#93;
-             :output &#91;:map &#91;:response-body :string&#93;&#93;}}&#41;
+&#40;cell/defcell :order/compute-tax
+  {:input  &#91;:map &#91;:subtotal :double&#93; &#91;:tax-rate :double&#93;&#93;
+   :output &#91;:map &#91;:tax :double&#93;&#93;}
+  &#40;fn &#91;resources data&#93;
+    ;; With key propagation &#40;default&#41;: return only new keys
+    {:tax &#40;&#42; &#40;:subtotal data&#41; &#40;:tax-rate data&#41;&#41;}&#41;&#41;
+</code></pre><p>Key propagation is on by default — handler output is merged with input, so you only return new or changed keys. To return all keys explicitly, disable with <code>{:propagate-keys? false}</code>.</p><h3 id="async&#95;cell">Async Cell</h3><pre><code class="clojure">&#40;cell/defcell :api/fetch
+  {:input  &#91;:map &#91;:url :string&#93;&#93;
+   :output &#91;:map &#91;:response-body :string&#93;&#93;
+   :async? true}
+  &#40;fn &#91;resources data callback error-callback&#93;
+    &#40;http/get &#40;:url data&#41;
+      {:on-success &#40;fn &#91;resp&#93; &#40;callback {:response-body &#40;:body resp&#41;}&#41;&#41;
+       :on-error   &#40;fn &#91;err&#93; &#40;error-callback err&#41;&#41;}&#41;&#41;&#41;
 </code></pre><h3 id="parameterized&#95;cell">Parameterized Cell</h3><pre><code class="clojure">;; Register once, use with different params
-&#40;defmethod cell/cell-spec :math/multiply &#91;&#95;&#93;
-  {:id      :math/multiply
-   :handler &#40;fn &#91;&#95; data&#93;
-              &#40;let &#91;factor &#40;get-in data &#91;:mycelium/params :factor&#93;&#41;&#93;
-                {:result &#40;&#42; &#40;:value data&#41; factor&#41;}&#41;&#41;
-   :schema  {:input &#91;:map &#91;:value number?&#93;&#93; :output &#91;:map &#91;:result number?&#93;&#93;}}&#41;
+&#40;cell/defcell :math/multiply
+  {:input &#91;:map &#91;:value number?&#93;&#93; :output &#91;:map &#91;:result number?&#93;&#93;}
+  &#40;fn &#91;&#95; data&#93;
+    &#40;let &#91;factor &#40;get-in data &#91;:mycelium/params :factor&#93;&#41;&#93;
+      {:result &#40;&#42; &#40;:value data&#41; factor&#41;}&#41;&#41;&#41;
 
 ;; Use in workflow
 {:cells {:triple {:id :math/multiply :params {:factor 3}}
@@ -389,7 +386,31 @@
 
 ;; Generate DOT graph for visualization
 &#40;dev/workflow-&gt;dot workflow-def&#41;
-</code></pre><h2></h2><h2 id="pre-compile&#95;for&#95;production">Pre-Compile for Production</h2><p><strong>Problem:</strong> Avoid recompiling the workflow on every request.</p><pre><code class="clojure">;; At startup — compile once
+</code></pre><h2></h2><h2 id="scaffold&#95;a&#95;workflow&#95;from&#95;its&#95;definition">Scaffold a Workflow from Its Definition</h2><p><strong>Problem:</strong> You've designed the workflow structure (cells, edges, schemas) and want to generate cell stubs to fill in.</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+&#40;def workflow
+  {:cells {:start   :order/validate
+           :process :order/compute
+           :render  :order/format}
+   :pipeline &#91;:start :process :render&#93;}&#41;
+
+;; Generate stubs
+&#40;println &#40;dev/generate-stubs workflow&#41;&#41;
+</code></pre><p>Output:</p><pre><code class="clojure">&#40;cell/defcell :order/compute
+  &#40;fn &#91;&#95;resources data&#93;
+    ;; TODO: implement :process
+    data&#41;&#41;
+
+&#40;cell/defcell :order/format
+  &#40;fn &#91;&#95;resources data&#93;
+    ;; TODO: implement :render
+    data&#41;&#41;
+
+&#40;cell/defcell :order/validate
+  &#40;fn &#91;&#95;resources data&#93;
+    ;; TODO: implement :start
+    data&#41;&#41;
+</code></pre><p>If cells are already registered with schemas, the stubs include their schemas. For manifest-style definitions (maps with <code>:id</code> and <code>:schema</code>), inline schemas are used.<h2></h2></p><h2 id="pre-compile&#95;for&#95;production">Pre-Compile for Production</h2><p><strong>Problem:</strong> Avoid recompiling the workflow on every request.</p><pre><code class="clojure">;; At startup — compile once
 &#40;def compiled &#40;myc/pre-compile workflow-def {:coerce? true}&#41;&#41;
 
 ;; Per request — zero compilation overhead
