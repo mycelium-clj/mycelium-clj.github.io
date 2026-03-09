@@ -2,6 +2,7 @@
  ["developing-workflows.md"   "Developing Workflows"        "topic"]
  ["creating-cells.md"         "Creating Cells"              "topic"]
  ["composing-workflows.md"    "Composing Workflows"         "topic"]
+ ["error-handling.md"         "Error Handling"              "topic"]
  ["testing.md"                "Testing"                     "topic"]
  ["interceptors.md"           "Interceptors"                "topic"]
  ["manifests.md"              "Manifests"                   "topic"]

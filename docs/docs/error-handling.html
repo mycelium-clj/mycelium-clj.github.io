@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Error Handling</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#error_handling">Error Handling</a></li><li><a href="#error_taxonomy">Error Taxonomy</a></li><li><a href="#unified_error_inspection">Unified Error Inspection</a></li><li><a href="#schema_validation_errors">Schema Validation Errors</a><ol><li><a href="#diagnosing_schema_failures">Diagnosing Schema Failures</a></li><li><a href="#input_validation">Input Validation</a></li></ol></li><li><a href="#error_groups">Error Groups</a><ol><li><a href="#error_recovery">Error Recovery</a></li></ol></li><li><a href="#graph-level_timeouts">Graph-Level Timeouts</a><ol><li><a href="#cascading_timeouts">Cascading Timeouts</a></li><li><a href="#timeouts_vs_resilience_timeouts">Timeouts vs Resilience Timeouts</a></li></ol></li><li><a href="#resilience_policies">Resilience Policies</a></li><li><a href="#join_errors">Join Errors</a></li><li><a href="#execution_tracing">Execution Tracing</a><ol><li><a href="#live_tracing">Live Tracing</a></li><li><a href="#custom_trace_callbacks">Custom Trace Callbacks</a></li><li><a href="#post-run_trace_analysis">Post-Run Trace Analysis</a></li></ol></li><li><a href="#error_handling_patterns">Error Handling Patterns</a><ol><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#errors_as_routing_decisions">Errors as Routing Decisions</a></li><li><a href="#layered_error_strategy">Layered Error Strategy</a></li><li><a href="#request_context_propagation">Request Context Propagation</a></li><li><a href="#structured_error_responses_for_apis">Structured Error Responses for APIs</a></li></ol></li><li><a href="#static_analysis">Static Analysis</a><ol><li><a href="#compile-time_constraints">Compile-Time Constraints</a></li></ol></li></ol>
+      
+      <div id="content">
+        <h1 id="error&#95;handling">Error Handling</h1><p>Mycelium treats errors as data flowing through the workflow graph, not as exceptions that unwind the stack. This guide covers the error taxonomy, how to handle errors at different levels, and how to build diagnostics and observability into your workflows.</p><h2 id="error&#95;taxonomy">Error Taxonomy</h2><p>Mycelium has six error categories, each stored as a namespaced key on the data map:</p><table><thead><tr><th>Key</th><th>When Set</th><th>Structure</th></tr></thead><tbody><tr><td><code>:mycelium/input-error</code></td><td>Initial data fails <code>:input-schema</code> validation</td><td><code>{:errors ..., :data ...}</code></td></tr><tr><td><code>:mycelium/schema-error</code></td><td>Cell input/output fails Malli schema</td><td><code>{:cell-id, :cell-name, :phase, :message, :failed-keys, :cell-path, :errors, :data}</code></td></tr><tr><td><code>:mycelium/error</code></td><td>Cell handler throws (caught by error group)</td><td><code>{:cell :cell-name, :message &quot;...&quot;}</code></td></tr><tr><td><code>:mycelium/resilience-error</code></td><td>Resilience policy triggers</td><td><code>{:type :timeout\</td></tr><tr><td><code>:mycelium/join-error</code></td><td>One or more join members fail</td><td>Seq of <code>{:cell-id, :cell, :message, ...}</code></td></tr><tr><td><code>:mycelium/timeout</code></td><td>Cell exceeds graph-level timeout</td><td><code>true</code></td></tr></tbody></table><p>These are mutually exclusive — a workflow result contains at most one error key.</p><h2 id="unified&#95;error&#95;inspection">Unified Error Inspection</h2><p>Rather than checking each key individually, use the <code>workflow-error</code> and <code>error?</code> functions:</p><pre><code class="clojure">&#40;require '&#91;mycelium.core :as myc&#93;&#41;
+
+&#40;let &#91;result &#40;myc/run-workflow wf resources data&#41;&#93;
+  &#40;if &#40;myc/error? result&#41;
+    &#40;let &#91;{:keys &#91;error-type message cell-id cell-name cell-path
+                  failed-keys details&#93;} &#40;myc/workflow-error result&#41;&#93;
+      &#40;log/error message&#41;
+      ;; error-type is one of:
+      ;;   :input, :schema/input, :schema/output, :handler,
+      ;;   :resilience/timeout, :resilience/circuit-open,
+      ;;   :resilience/bulkhead-full, :resilience/rate-limited,
+      ;;   :join, :timeout
+      &#40;case error-type
+        :schema/input  &#40;handle-bad-input cell-name failed-keys&#41;
+        :schema/output &#40;handle-bad-output cell-name failed-keys&#41;
+        :handler       &#40;handle-cell-failure cell-name&#41;
+        :join          &#40;handle-join-failure details&#41;
+        &#40;handle-generic-error error-type message&#41;&#41;&#41;
+    &#40;handle-success result&#41;&#41;&#41;
+</code></pre><p><code>workflow-error</code> returns nil on success, or a map with:</p><ul><li><code>:error-type</code> — keyword identifying the category</li><li><code>:message</code> — human-readable description including the cell name and failing keys</li><li><code>:details</code> — the original error data for programmatic access</li><li><code>:cell-id</code> — cell spec ID (e.g., <code>:app/validate</code>)</li><li><code>:cell-name</code> — workflow cell name (e.g., <code>:validate</code>)</li><li><code>:cell-path</code> — vector of cells that ran before the failure</li><li><code>:failed-keys</code> — per-key diagnostics (schema errors only)</li></ul><h2 id="schema&#95;validation&#95;errors">Schema Validation Errors</h2><p>Schema errors are the most detailed. When a cell's input or output fails Malli validation, the error includes:</p><pre><code class="clojure">;; Schema error structure &#40;from :mycelium/schema-error&#41;
+{:cell-id     :app/process-payment
+ :cell-name   :payment
+ :phase       :input           ;; or :output
+ :message     &quot;Schema input validation failed at payment &#40;:app/process-payment&#41; — failing keys: &#40;:amount :currency&#41;&quot;
+ :failed-keys {:amount   {:value &quot;not-a-number&quot;
+                           :type  &quot;java.lang.String&quot;
+                           :message &quot;should be a double&quot;}
+                :currency {:value nil
+                           :type  nil
+                           :message &quot;missing required key&quot;}}
+ :cell-path   &#91;:validate :lookup&#93;   ;; cells that ran before this one
+ :errors      {:amount &#91;&quot;should be a double&quot;&#93;
+               :currency &#91;&quot;missing required key&quot;&#93;}
+ :data        {:user-id &quot;alice&quot;}}   ;; clean data &#40;no :mycelium/&#42; keys&#41;
+</code></pre><h3 id="diagnosing&#95;schema&#95;failures">Diagnosing Schema Failures</h3><p>The <code>:failed-keys</code> map gives you per-key diagnostics — the actual value, its Java type, and what Malli expected:</p><pre><code class="clojure">&#40;when-let &#91;{:keys &#91;message failed-keys cell-path&#93;} &#40;myc/workflow-error result&#41;&#93;
+  &#40;println message&#41;
+  ;; &quot;Schema input validation failed at payment &#40;:app/process-payment&#41; — failing keys: &#40;:amount :currency&#41;&quot;
+
+  &#40;doseq &#91;&#91;k {:keys &#91;value type message&#93;}&#93; failed-keys&#93;
+    &#40;println &quot;  &quot; k &quot;=&quot; &#40;pr-str value&#41; &quot;&#40;&quot; type &quot;&#41;&quot; &quot;-&quot; message&#41;&#41;
+  ;; :amount = &quot;not-a-number&quot; &#40;java.lang.String&#41; - should be a double
+  ;; :currency = nil &#40;nil&#41; - missing required key
+
+  &#40;println &quot;Execution path:&quot; cell-path&#41;&#41;
+  ;; Execution path: &#91;:validate :lookup&#93;
+</code></pre><h3 id="input&#95;validation">Input Validation</h3><p>Validate initial workflow data before any cells run:</p><pre><code class="clojure">{:cells {:start :app/process}
+ :edges {:start :end}
+ :input-schema &#91;:map
+                &#91;:user-id :string&#93;
+                &#91;:amount &#91;:and :double &#91;:&gt; 0&#93;&#93;&#93;&#93;}
+
+;; On invalid input:
+&#40;let &#91;result &#40;myc/run-workflow wf {} {:user-id 123}&#41;&#93;
+  &#40;:mycelium/input-error result&#41;&#41;
+;; =&gt; {:errors {:user-id &#91;&quot;should be a string&quot;&#93;, :amount &#91;&quot;missing required key&quot;&#93;}
+;;     :data {:user-id 123}}
+</code></pre><p>No cells execute when input validation fails.</p><h2 id="error&#95;groups">Error Groups</h2><p>Error groups assign a shared error handler to multiple cells. When any grouped cell's handler throws an exception, the exception is caught, <code>:mycelium/error</code> is set on data, and execution routes to the error handler.</p><pre><code class="clojure">&#40;def workflow
+  {:cells {:start     :data/fetch
+           :transform :data/transform
+           :render    :data/render
+           :err       :data/handle-error}
+
+   :edges {:start     :transform
+           :transform :render
+           :render    :end
+           :err       :end}
+
+   :error-groups {:pipeline {:cells    &#91;:start :transform :render&#93;
+                              :on-error :err}}}&#41;
+</code></pre><p>At compile time, the framework:</p><ol><li>Expands unconditional edges to include <code>:on-error</code> targets</li><li>Injects <code>:on-error</code> dispatch predicates (checked first)</li><li>Wraps grouped cell handlers with try/catch</li></ol><p>The error handler receives the full data map with <code>:mycelium/error</code>:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :data/handle-error &#91;&#95;&#93;
+  {:id      :data/handle-error
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                {:error-page &#40;str &quot;Failed at &quot; &#40;name cell&#41; &quot;: &quot; message&#41;}&#41;&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}}&#41;
+</code></pre><h3 id="error&#95;recovery">Error Recovery</h3><p>An error handler can clear the error and attempt recovery:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :order/retry-with-backup &#91;&#95;&#93;
+  {:id      :order/retry-with-backup
+   :handler &#40;fn &#91;{:keys &#91;backup-gateway&#93;} data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                &#40;log/warn &quot;Primary failed at&quot; cell &quot;:&quot; message&#41;
+                &#40;-&gt; &#40;dissoc data :mycelium/error&#41;
+                    &#40;assoc :result &#40;call-backup backup-gateway data&#41;&#41;&#41;&#41;&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:result :string&#93;&#93;}}&#41;
+</code></pre><p>If the recovery cell itself throws and is in an error group, the error routes to its group's handler.</p><h2 id="graph-level&#95;timeouts">Graph-Level Timeouts</h2><p>Graph-level timeouts route to a fallback cell instead of raising an error:</p><pre><code class="clojure">{:cells {:fetch    :data/fetch-remote
+         :process  :data/process
+         :fallback :data/use-default}
+
+ :edges {:fetch   {:done :process, :timeout :fallback}
+         :process :end
+         :fallback :end}
+
+ :dispatches {:fetch &#91;&#91;:done &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/timeout d&#41;&#41;&#41;&#93;&#93;}
+
+ :timeouts {:fetch 5000}}  ;; milliseconds
+</code></pre><p>The <code>:timeout</code> dispatch is auto-injected and evaluated first. When triggered, <code>:mycelium/timeout</code> is set to <code>true</code> on the data map and output schema validation is skipped.</p><h3 id="cascading&#95;timeouts">Cascading Timeouts</h3><p>Chain timeouts for progressively slower fallbacks:</p><pre><code class="clojure">{:edges {:fast   {:done :process, :timeout :slow}
+         :slow   {:done :process, :timeout :cached}
+         :process :end
+         :cached  :end}
+
+ :timeouts {:fast 1000, :slow 10000}}
+</code></pre><h3 id="timeouts&#95;vs&#95;resilience&#95;timeouts">Timeouts vs Resilience Timeouts</h3><table><thead><tr><th>Feature</th><th>Graph-level <code>:timeouts</code></th><th>Resilience <code>:timeout</code></th></tr></thead><tbody><tr><td>Error key</td><td><code>:mycelium/timeout</code></td><td><code>:mycelium/resilience-error</code></td></tr><tr><td>Routing</td><td>Routes via dispatch</td><td>Sets error on data</td></tr><tr><td>Requires</td><td><code>:timeout</code> edge</td><td>Dispatch on <code>:mycelium/resilience-error</code></td></tr><tr><td>Use case</td><td>Fallback to alternative cell</td><td>Protection with error signal</td></tr></tbody></table><h2 id="resilience&#95;policies">Resilience Policies</h2><p>Wrap cells with circuit breakers, retries, timeouts, bulkheads, and rate limiters:</p><pre><code class="clojure">{:cells {:start    :api/call-external
+         :ok       :app/process-result
+         :fallback :app/use-cached}
+
+ :edges {:start {:done :ok, :failed :fallback}
+         :ok :end, :fallback :end}
+
+ :dispatches {:start &#91;&#91;:failed &#40;fn &#91;d&#93; &#40;some? &#40;:mycelium/resilience-error d&#41;&#41;&#41;&#93;
+                      &#91;:done   &#40;fn &#91;d&#93; &#40;nil? &#40;:mycelium/resilience-error d&#41;&#41;&#41;&#93;&#93;}
+
+ :resilience {:start {:timeout         {:timeout-ms 5000}
+                      :retry           {:max-attempts 3 :wait-ms 200}
+                      :circuit-breaker {:failure-rate 50
+                                        :minimum-calls 10
+                                        :sliding-window-size 100
+                                        :wait-in-open-ms 60000}
+                      :bulkhead        {:max-concurrent 25 :max-wait-ms 0}
+                      :rate-limiter    {:limit-for-period 50
+                                        :limit-refresh-period-ms 500
+                                        :timeout-ms 5000}}}}
+</code></pre><p>When a policy triggers, the handler doesn't throw — instead <code>:mycelium/resilience-error</code> is set:</p><pre><code class="clojure">{:type    :circuit-open  ;; or :timeout, :bulkhead-full, :rate-limited
+ :cell    :start
+ :message &quot;CircuitBreaker 'start-cb' is OPEN...&quot;}
+</code></pre><p>Resilience instances are stateful (circuit breaker state, rate limiter counters). Use <code>pre-compile</code> + <code>run-compiled</code> to share state across invocations:</p><pre><code class="clojure">&#40;def compiled &#40;myc/pre-compile workflow&#41;&#41;
+;; Reuse `compiled` — circuit breaker state persists
+&#40;myc/run-compiled compiled resources data-1&#41;
+&#40;myc/run-compiled compiled resources data-2&#41;
+</code></pre><h2 id="join&#95;errors">Join Errors</h2><p>When a fork-join member throws, <code>:mycelium/join-error</code> contains details of which members failed:</p><pre><code class="clojure">{:joins {:fees {:cells &#91;:tax :shipping :discount&#93;
+                :strategy :parallel}}
+
+ :edges {:start :fees
+         :fees  {:done :total, :failure :partial}
+         :total :end, :partial :end}}
+</code></pre><p>Successfully completed members' outputs are merged into data. The <code>:failure</code> edge is auto-dispatched. The recovery cell can inspect partial results:</p><pre><code class="clojure">&#40;fn &#91;&#95; data&#93;
+  &#40;let &#91;errors &#40;:mycelium/join-error data&#41;&#93;
+    ;; errors is a seq of {:cell-id :order/calc-shipping, :cell :shipping, ...}
+    ;; Successful members' outputs are already in data
+    {:note &#40;str &#40;count errors&#41; &quot; service&#40;s&#41; failed&quot;&#41;
+     :total &#40;or &#40;:tax data&#41; 0&#41;}&#41;&#41;
+</code></pre><h2 id="execution&#95;tracing">Execution Tracing</h2><p>Every workflow result includes <code>:mycelium/trace</code> — a vector of entries showing what ran:</p><pre><code class="clojure">{:cell       :validate        ;; workflow cell name
+ :cell-id    :app/validate    ;; cell spec ID
+ :transition :done            ;; dispatch transition taken
+ :duration-ms 1.23            ;; execution time
+ :data       {:x 42}          ;; data snapshot &#40;no :mycelium/&#42; keys&#41;
+ :error      nil}             ;; schema error if validation failed
+</code></pre><h3 id="live&#95;tracing">Live Tracing</h3><p>Use <code>:on-trace</code> for real-time monitoring:</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+;; Built-in logger — prints each cell as it completes
+&#40;myc/run-workflow wf resources data {:on-trace &#40;dev/trace-logger&#41;}&#41;
+;; 1. :validate &#40;:app/validate&#41; -&gt; :done &#91;0.42ms&#93;
+;; 2. :process &#40;:app/transform&#41; -&gt; :done &#91;1.23ms&#93;
+</code></pre><h3 id="custom&#95;trace&#95;callbacks">Custom Trace Callbacks</h3><p>Build structured logging, metrics, or alerting on top of <code>:on-trace</code>:</p><pre><code class="clojure">;; Structured logging
+&#40;defn structured-logger &#91;&#93;
+  &#40;fn &#91;{:keys &#91;cell cell-id transition duration-ms error&#93;}&#93;
+    &#40;log/info {:event     :cell-completed
+               :cell      cell
+               :cell-id   cell-id
+               :transition transition
+               :duration-ms duration-ms
+               :error?    &#40;some? error&#41;}&#41;&#41;&#41;
+
+&#40;myc/run-workflow wf resources data {:on-trace &#40;structured-logger&#41;}&#41;
+</code></pre><pre><code class="clojure">;; Metrics collection
+&#40;defn metrics-collector &#91;registry&#93;
+  &#40;fn &#91;{:keys &#91;cell duration-ms error&#93;}&#93;
+    &#40;metrics/record-timer registry &#40;str &quot;cell.&quot; &#40;name cell&#41; &quot;.duration&quot;&#41; duration-ms&#41;
+    &#40;when error
+      &#40;metrics/increment registry &#40;str &quot;cell.&quot; &#40;name cell&#41; &quot;.errors&quot;&#41;&#41;&#41;&#41;&#41;
+</code></pre><pre><code class="clojure">;; Slow cell alerting
+&#40;defn slow-cell-alerter &#91;threshold-ms&#93;
+  &#40;fn &#91;{:keys &#91;cell duration-ms&#93;}&#93;
+    &#40;when &#40;and duration-ms &#40;&gt; duration-ms threshold-ms&#41;&#41;
+      &#40;log/warn &quot;Slow cell&quot; cell &quot;took&quot; duration-ms &quot;ms&quot;&#41;&#41;&#41;&#41;
+</code></pre><h3 id="post-run&#95;trace&#95;analysis">Post-Run Trace Analysis</h3><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow wf resources data&#41;
+      trace  &#40;:mycelium/trace result&#41;&#93;
+  ;; Pretty-print
+  &#40;println &#40;dev/format-trace trace&#41;&#41;
+
+  ;; Assert execution path
+  &#40;is &#40;= &#91;:validate :process :render&#93; &#40;mapv :cell trace&#41;&#41;&#41;
+
+  ;; Find the slowest cell
+  &#40;let &#91;slowest &#40;apply max-key :duration-ms trace&#41;&#93;
+    &#40;println &quot;Slowest:&quot; &#40;:cell slowest&#41; &#40;:duration-ms slowest&#41; &quot;ms&quot;&#41;&#41;
+
+  ;; Check for errors in trace
+  &#40;let &#91;errored &#40;filter :error trace&#41;&#93;
+    &#40;doseq &#91;e errored&#93;
+      &#40;println &quot;Error at&quot; &#40;:cell e&#41; &quot;-&quot; &#40;get-in e &#91;:error :message&#93;&#41;&#41;&#41;&#41;&#41;
+</code></pre><h2 id="error&#95;handling&#95;patterns">Error Handling Patterns</h2><h3 id="errors&#95;are&#95;data,&#95;not&#95;exceptions">Errors Are Data, Not Exceptions</h3><p>Expected failures should be data keys routed via dispatch — not thrown exceptions:</p><pre><code class="clojure">;; GOOD: cell sets a status key, dispatch routes on it
+&#40;fn &#91;resources data&#93;
+  &#40;let &#91;result &#40;charge-card resources &#40;:card data&#41; &#40;:total data&#41;&#41;&#93;
+    {:payment-status &#40;if &#40;:success result&#41; :approved :declined&#41;}&#41;&#41;
+
+:dispatches {:payment &#91;&#91;:approved &#40;fn &#91;d&#93; &#40;= :approved &#40;:payment-status d&#41;&#41;&#41;&#93;
+                       &#91;:declined &#40;fn &#91;d&#93; &#40;= :declined &#40;:payment-status d&#41;&#41;&#41;&#93;&#93;}
+</code></pre><p>Reserve error groups for truly unexpected failures (IO errors, null pointers, connection drops).</p><h3 id="errors&#95;as&#95;routing&#95;decisions">Errors as Routing Decisions</h3><p>Use per-transition output schemas to validate both success and failure paths:</p><pre><code class="clojure">:schema {:input  &#91;:map &#91;:card :string&#93; &#91;:total :double&#93;&#93;
+         :output {:approved &#91;:map &#91;:payment-status &#91;:= :approved&#93;&#93;
+                              &#91;:transaction-id :string&#93;&#93;
+                  :declined &#91;:map &#91;:payment-status &#91;:= :declined&#93;&#93;
+                              &#91;:decline-reason :string&#93;&#93;}}
+</code></pre><p>Each branch gets its own schema validation — a declined payment must include <code>:decline-reason</code>.</p><h3 id="layered&#95;error&#95;strategy">Layered Error Strategy</h3><p>Combine multiple error mechanisms for defense in depth:</p><pre><code class="clojure">{:cells {:start     :api/call
+         :process   :app/process
+         :fallback  :app/use-cached
+         :err       :app/handle-error}
+
+ ;; Layer 1: Graph-level timeout — route to fallback
+ :timeouts {:start 5000}
+
+ ;; Layer 2: Resilience — retry transient failures, circuit-break persistent ones
+ :resilience {:start {:retry          {:max-attempts 3 :wait-ms 200}
+                      :circuit-breaker {:failure-rate 50
+                                        :minimum-calls 10}}}
+
+ ;; Layer 3: Error group — catch anything that gets through
+ :error-groups {:all {:cells &#91;:start :process&#93; :on-error :err}}
+
+ :edges {:start    {:done :process, :timeout :fallback}
+         :process  :end
+         :fallback :end
+         :err      :end}
+
+ :dispatches {:start &#91;&#91;:done &#40;fn &#91;d&#93; &#40;not &#40;:mycelium/timeout d&#41;&#41;&#41;&#93;&#93;}}
+</code></pre><p>Evaluation order: timeout check → resilience wrapper → error group catch.</p><h3 id="request&#95;context&#95;propagation">Request Context Propagation</h3><p>Pass correlation IDs or request context through the workflow using data keys:</p><pre><code class="clojure">;; Set context at workflow entry
+&#40;myc/run-compiled compiled resources
+  {:request-id &#40;str &#40;random-uuid&#41;&#41;
+   :user-id    &#40;:id current-user&#41;
+   :order-data order}&#41;
+
+;; Every cell receives :request-id and :user-id via key propagation
+;; Include in error handling:
+&#40;defmethod cell/cell-spec :app/handle-error &#91;&#95;&#93;
+  {:id      :app/handle-error
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;log/error {:request-id &#40;:request-id data&#41;
+                          :user-id    &#40;:user-id data&#41;
+                          :error      &#40;:mycelium/error data&#41;}&#41;
+              {:error-page &quot;Something went wrong&quot;}&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}}&#41;
+</code></pre><h3 id="structured&#95;error&#95;responses&#95;for&#95;apis">Structured Error Responses for APIs</h3><p>Build HTTP error responses from workflow errors:</p><pre><code class="clojure">&#40;defn workflow-handler &#91;compiled resources&#93;
+  &#40;fn &#91;req&#93;
+    &#40;let &#91;result &#40;myc/run-compiled compiled resources &#40;extract-input req&#41;&#41;&#93;
+      &#40;if-let &#91;{:keys &#91;error-type message cell-name failed-keys&#93;}
+               &#40;myc/workflow-error result&#41;&#93;
+        &#40;case error-type
+          :input
+          {:status 400
+           :body   {:error &quot;Invalid input&quot; :details message}}
+
+          &#40;:schema/input :schema/output&#41;
+          {:status 500
+           :body   {:error &quot;Internal validation error&quot;
+                    :cell  cell-name}}
+
+          &#40;:resilience/timeout :resilience/circuit-open&#41;
+          {:status 503
+           :body   {:error &quot;Service temporarily unavailable&quot;
+                    :retry-after 30}}
+
+          :timeout
+          {:status 504
+           :body   {:error &quot;Request timed out&quot;}}
+
+          ;; Default
+          {:status 500
+           :body   {:error &quot;Internal error&quot;}}&#41;
+        {:status 200
+         :body   &#40;select-keys result &#91;:order-id :status&#93;&#41;}&#41;&#41;&#41;&#41;
+</code></pre><h2 id="static&#95;analysis">Static Analysis</h2><p>Catch structural problems before any code runs:</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+&#40;dev/analyze-workflow workflow-def&#41;
+;; =&gt; {:reachable      #{:start :process :render}
+;;     :unreachable    #{}
+;;     :no-path-to-end #{}
+;;     :cycles         &#91;&#93;}
+
+;; Schema chain — see what keys are available at each cell
+&#40;dev/infer-workflow-schema workflow-def&#41;
+;; =&gt; {:start   {:available-before #{:x}, :adds #{:result}, :available-after #{:x :result}}
+;;     :process {:available-before #{:x :result}, :adds #{:total}, ...}}
+
+;; All possible paths through the graph
+&#40;dev/enumerate-paths workflow-def&#41;
+;; =&gt; &#91;&#91;:start :process :end&#93; &#91;:start :error-handler :end&#93;&#93;
+</code></pre><h3 id="compile-time&#95;constraints">Compile-Time Constraints</h3><p>Enforce structural invariants across all execution paths:</p><pre><code class="clojure">{:constraints &#91;{:type :must-follow      :if :process   :then :audit}
+               {:type :never-together   :cells &#91;:review :auto&#93;}
+               {:type :always-reachable :cell :audit}&#93;}
+</code></pre><p>Violations throw at compile time with the specific path that breaks the constraint.</p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/developing-workflows.html">
+            Developing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/error-handling.html">
+            Error Handling
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/cookbook.html">
+            Cookbook
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>
