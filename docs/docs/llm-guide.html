@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>LLM Implementation Guide</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#mycelium_implementation_guide">Mycelium Implementation Guide</a></li><li><a href="#workflow_in_60_seconds">Workflow in 60 Seconds</a></li><li><a href="#cell_definition">Cell Definition</a><ol><li><a href="#cell_rules">Cell Rules</a></li><li><a href="#schema_syntax">Schema Syntax</a></li></ol></li><li><a href="#workflow_patterns">Workflow Patterns</a><ol><li><a href="#linear_pipeline">Linear Pipeline</a></li><li><a href="#branching">Branching</a></li><li><a href="#per-transition_output_schema">Per-Transition Output Schema</a></li><li><a href="#parallel_join">Parallel Join</a></li><li><a href="#default_fallback">Default Fallback</a></li></ol></li><li><a href="#development_workflow_(3_phases)">Development Workflow (3 Phases)</a><ol><li><a href="#phase_1:_structure_(compile-time_feedback)">Phase 1: Structure (compile-time feedback)</a></li><li><a href="#phase_2:_logic_(run_with_warnings,_iterate)">Phase 2: Logic (run with warnings, iterate)</a></li><li><a href="#phase_3:_contract_(strict_mode)">Phase 3: Contract (strict mode)</a></li><li><a href="#testing_cells_in_isolation">Testing Cells in Isolation</a></li></ol></li><li><a href="#common_mistakes">Common Mistakes</a><ol><li><a href="#1._returning_the_full_data_map">1. Returning the full data map</a></li><li><a href="#2._wrong_items_format">2. Wrong items format</a></li><li><a href="#3._returning_nil_from_a_cell">3. Returning nil from a cell</a></li></ol></li><li><a href="#quick_reference">Quick Reference</a></li></ol>
+      
+      <div id="content">
+        <h1 id="mycelium&#95;implementation&#95;guide">Mycelium Implementation Guide</h1><p>A concise reference for implementing workflows with Mycelium. Designed for use as LLM context — include this file when prompting an agent to build Mycelium applications.<h2></h2></p><h2 id="workflow&#95;in&#95;60&#95;seconds">Workflow in 60 Seconds</h2><p>A Mycelium workflow is a directed graph of <strong>cells</strong> (pure data transformations) connected by <strong>edges</strong> (routing). Data accumulates through the graph — each cell receives all keys from every upstream cell.</p><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;
+         '&#91;mycelium.core :as myc&#93;&#41;
+
+;; 1. Define cells &#40;lite schema syntax — {key type}&#41;
+&#40;cell/defcell :app/validate
+  {:input  {:name :string}
+   :output {:valid :boolean}}
+  &#40;fn &#91;&#95;resources data&#93;
+    {:valid &#40;not &#40;empty? &#40;:name data&#41;&#41;&#41;}&#41;&#41;
+
+&#40;cell/defcell :app/greet
+  {:input  {:name :string}
+   :output {:greeting :string}}
+  &#40;fn &#91;&#95;resources data&#93;
+    {:greeting &#40;str &quot;Hello, &quot; &#40;:name data&#41; &quot;!&quot;&#41;}&#41;&#41;
+
+;; 2. Define workflow
+&#40;def workflow
+  {:cells {:start :app/validate
+           :greet :app/greet}
+   :edges {:start :greet
+           :greet :end}}&#41;
+
+;; 3. Run it
+&#40;myc/run-workflow workflow {} {:name &quot;Alice&quot;}&#41;
+;; =&gt; {:name &quot;Alice&quot;, :valid true, :greeting &quot;Hello, Alice!&quot;, :mycelium/trace &#91;...&#93;}
+</code></pre><h2></h2><h2 id="cell&#95;definition">Cell Definition</h2><p>Use <code>cell/defcell</code> to register cells. The ID is specified once (no duplication).</p><pre><code class="clojure">;; Minimal — no schema
+&#40;cell/defcell :ns/cell-id
+  &#40;fn &#91;resources data&#93;
+    {:result-key &quot;value&quot;}&#41;&#41;
+
+;; With schema &#40;recommended — lite syntax&#41;
+&#40;cell/defcell :ns/cell-id
+  {:input  {:x :int}
+   :output {:y :int}}
+  &#40;fn &#91;resources data&#93;
+    {:y &#40;&#42; 2 &#40;:x data&#41;&#41;}&#41;&#41;
+
+;; With schema + options
+&#40;cell/defcell :ns/cell-id
+  {:input    {:x :int}
+   :output   {:y :int}
+   :doc      &quot;Doubles the input&quot;
+   :requires &#91;:db&#93;}
+  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
+    {:y &#40;&#42; 2 &#40;:x data&#41;&#41;}&#41;&#41;
+</code></pre><h3 id="cell&#95;rules">Cell Rules</h3><ol><li><strong>Handler signature:</strong> <code>&#40;fn &#91;resources data&#93; -&gt; data-map&#41;</code></li><li><strong>Return only new keys.</strong> Key propagation is on by default — input keys are merged automatically. Don't <code>&#40;assoc data ...&#41;</code>, just return <code>{:new-key value}</code>.</li><li><strong>Resources for infrastructure.</strong> Database connections, HTTP clients, config go in <code>resources</code>. Data map is for workflow state only.</li><li><strong>Errors are data.</strong> Set a key (<code>:status :failed</code>) and let dispatch predicates route it. Don't throw for expected failures.</li><li><strong>Schemas use <a href='https://github.com/metosin/malli'>Malli</a> syntax</strong> or <strong>lite syntax</strong> (see below).</li></ol><h3 id="schema&#95;syntax">Schema Syntax</h3><p>Two equivalent ways to write schemas:</p><pre><code class="clojure">;; Malli vector syntax &#40;full power&#41;
+{:input  &#91;:map &#91;:subtotal :double&#93; &#91;:state :string&#93;&#93;
+ :output &#91;:map &#91;:tax :double&#93;&#93;}
+
+;; Lite syntax &#40;simpler, recommended for most cases&#41;
+{:input  {:subtotal :double, :state :string}
+ :output {:tax :double}}
+</code></pre><p>Lite syntax auto-converts <code>{:key :type}</code> to <code>&#91;:map &#91;:key :type&#93;&#93;</code>. It works in <code>defcell</code>, <code>set-cell-schema!</code>, and manifest schemas. Nested maps are supported:</p><pre><code class="clojure">{:input {:address {:street :string, :city :string}}}
+;; becomes &#91;:map &#91;:address &#91;:map &#91;:street :string&#93; &#91;:city :string&#93;&#93;&#93;&#93;
+</code></pre><p>Use full Malli syntax when you need: enums (<code>&#91;:enum :a :b&#93;</code>), unions (<code>&#91;:or :string :int&#93;</code>), optional fields, or other advanced features. Both syntaxes can be mixed freely.</p><p>Available types: <code>:string</code>, <code>:int</code>, <code>:double</code>, <code>:boolean</code>, <code>:keyword</code>, <code>:uuid</code>, <code>&#91;:enum :a :b&#93;</code>, <code>&#91;:vector :type&#93;</code>, <code>&#91;:map-of :key-type :val-type&#93;</code>, etc.<h2></h2></p><h2 id="workflow&#95;patterns">Workflow Patterns</h2><h3 id="linear&#95;pipeline">Linear Pipeline</h3><pre><code class="clojure">{:cells    {:start :app/a, :step2 :app/b, :step3 :app/c}
+ :pipeline &#91;:start :step2 :step3&#93;}
+;; Expands to: :edges {:start :step2, :step2 :step3, :step3 :end}
+</code></pre><h3 id="branching">Branching</h3><pre><code class="clojure">{:cells {:start :app/check
+         :ok    :app/process
+         :err   :app/error}
+ :edges {:start {:pass :ok, :fail :err}
+         :ok :end, :err :end}
+ :dispatches {:start &#91;&#91;:pass &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;
+                       &#91;:fail &#40;fn &#91;d&#93; &#40;not &#40;:valid d&#41;&#41;&#41;&#93;&#93;}}
+</code></pre><p>Handlers compute data. Dispatch predicates choose the route. Separate concerns.</p><h3 id="per-transition&#95;output&#95;schema">Per-Transition Output Schema</h3><p>When a cell branches, declare output per edge:</p><pre><code class="clojure">&#40;cell/defcell :app/check
+  {:input  &#91;:map &#91;:value :int&#93;&#93;
+   :output {:pass &#91;:map &#91;:status &#91;:= :ok&#93;&#93;&#93;
+            :fail &#91;:map &#91;:status &#91;:= :error&#93;&#93; &#91;:reason :string&#93;&#93;}}
+  &#40;fn &#91;&#95; data&#93;
+    &#40;if &#40;pos? &#40;:value data&#41;&#41;
+      {:status :ok}
+      {:status :error :reason &quot;must be positive&quot;}&#41;&#41;&#41;
+</code></pre><h3 id="parallel&#95;join">Parallel Join</h3><pre><code class="clojure">{:cells {:start :app/validate
+         :tax   :app/calc-tax        ;; join member — no edges entry
+         :ship  :app/calc-shipping   ;; join member — no edges entry
+         :total :app/compute-total}
+ :joins {:fees {:cells &#91;:tax :ship&#93; :strategy :parallel}}
+ :edges {:start :fees
+         :fees  {:done :total, :failure :end}
+         :total :end}}
+</code></pre><p>Join members have <strong>no entries in <code>:edges</code></strong>. Each gets the same input snapshot. Output keys must not overlap.</p><h3 id="default&#95;fallback">Default Fallback</h3><pre><code class="clojure">:edges {:start {:success :ok, :default :fallback}}
+:dispatches {:start &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;&#93;}
+;; :default auto-generates &#40;constantly true&#41; as last predicate
+</code></pre><h2></h2><h2 id="development&#95;workflow&#95;(3&#95;phases)">Development Workflow (3 Phases)</h2><p>Mycelium supports an iterative development workflow. You don't need to get everything right on the first try.</p><h3 id="phase&#95;1:&#95;structure&#95;(compile-time&#95;feedback)">Phase 1: Structure (compile-time feedback)</h3><p>Write the manifest with cells, edges, and schemas. Pre-compilation catches structural errors immediately:</p><pre><code class="clojure">&#40;myc/pre-compile workflow-def&#41; ;; Throws on: missing edges, unreachable cells, bad schemas
+</code></pre><p>Generate cell stubs from the workflow structure:</p><pre><code class="clojure">&#40;println &#40;myc/generate-stubs workflow-def&#41;&#41;
+;; Prints defcell forms with schemas and TODO handlers
+</code></pre><h3 id="phase&#95;2:&#95;logic&#95;(run&#95;with&#95;warnings,&#95;iterate)">Phase 2: Logic (run with warnings, iterate)</h3><p>Write handler implementations. Run with <code>:validate :warn</code> to see all problems at once without halting:</p><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow workflow {} test-data {:validate :warn}&#41;&#93;
+  ;; Workflow runs to completion even if schemas don't match
+  &#40;println &#40;:mycelium/warnings result&#41;&#41;&#41;
+;; =&gt; &#91;{:cell-id :app/tax, :phase :output,
+;;      :message &quot;Schema output validation failed at :app/tax
+;;        Missing key&#40;s&#41;: #{:tax}
+;;        Extra key&#40;s&#41;: #{:tax-amount}&quot;,
+;;      :key-diff {:missing #{:tax}, :extra #{:tax-amount}}}&#93;
+</code></pre><p>Schema errors now include <strong>key-diff suggestions</strong> — if you misname a key, the error tells you exactly what to rename.</p><p>You can also skip validation entirely during early development:</p><pre><code class="clojure">&#40;myc/run-workflow workflow {} test-data {:validate :off}&#41;
+</code></pre><p><strong>Or infer schemas from test runs</strong> — write handlers first, let Mycelium figure out the schemas:</p><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+
+;; Run with test data, observe actual shapes
+&#40;def inferred &#40;dev/infer-schemas workflow-def {} test-inputs&#41;&#41;
+;; =&gt; {:start {:input &#91;:map &#91;:x :int&#93;&#93;, :output &#91;:map &#91;:x :int&#93; &#91;:result :int&#93;&#93;}
+;;     :fmt   {:input &#91;:map &#91;:x :int&#93; &#91;:result :int&#93;&#93;, :output &#91;:map ...&#93;}}
+
+;; Apply inferred schemas to cell registry
+&#40;dev/apply-inferred-schemas! inferred workflow-def&#41;
+</code></pre><h3 id="phase&#95;3:&#95;contract&#95;(strict&#95;mode)">Phase 3: Contract (strict mode)</h3><p>Once logic is correct, lock down schemas. Run with <code>:validate :strict</code> (the default):</p><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow workflow {} data&#41;&#93;
+  ;; Schema violations halt execution with precise error
+  &#40;when-let &#91;err &#40;myc/workflow-error result&#41;&#93;
+    &#40;println &#40;:message err&#41;&#41;     ;; human-readable with key-diff suggestions
+    &#40;println &#40;:key-diff err&#41;&#41;    ;; {:missing #{...} :extra #{...}}
+    &#40;println &#40;:failed-keys err&#41;&#41; ;; per-key details with types
+    &#41;&#41;
+</code></pre><h3 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h3><pre><code class="clojure">&#40;dev/test-cell :app/validate {:input {:name &quot;Alice&quot;}}&#41;
+;; =&gt; {:pass? true, :output {:valid true}, :errors &#91;&#93;, :duration-ms 0.1}
+</code></pre><h2></h2><h2 id="common&#95;mistakes">Common Mistakes</h2><h3 id="1.&#95;returning&#95;the&#95;full&#95;data&#95;map">1. Returning the full data map</h3><pre><code class="clojure">;; WRONG — don't thread the full map
+&#40;fn &#91;&#95; data&#93; &#40;assoc data :y &#40;&#42; 2 &#40;:x data&#41;&#41;&#41;&#41;
+
+;; RIGHT — return only new keys &#40;key propagation merges input&#41;
+&#40;fn &#91;&#95; data&#93; {:y &#40;&#42; 2 &#40;:x data&#41;&#41;}&#41;
+</code></pre><p>Both work, but the second is idiomatic. Key propagation is on by default.</p><h3 id="2.&#95;wrong&#95;items&#95;format">2. Wrong items format</h3><p>If the spec says items are <code>&#91;{&quot;laptop&quot; 1} {&quot;shirt&quot; 2}&#93;</code>, keep that format. Mycelium doesn't impose any format on your data — it flows whatever you put in. Match the domain spec exactly.</p><h3 id="3.&#95;returning&#95;nil&#95;from&#95;a&#95;cell">3. Returning nil from a cell</h3><p>Cell handlers must return a map! Returning <code>nil</code> causes downstream failures. If a cell has nothing to add, return <code>{}</code>.<h2></h2></p><h2 id="quick&#95;reference">Quick Reference</h2><table><thead><tr><th>Concept</th><th>Syntax</th></tr></thead><tbody><tr><td>Register cell</td><td><code>&#40;cell/defcell :ns/id {:input {:x :int} :output {:y :int}} handler-fn&#41;</code></td></tr><tr><td>Lite schema</td><td><code>{:input {:x :int}}</code> → <code>{:input &#91;:map &#91;:x :int&#93;&#93;}</code></td></tr><tr><td>Linear pipeline</td><td><code>{:pipeline &#91;:a :b :c&#93;}</code></td></tr><tr><td>Branching edges</td><td><code>{:edges {:start {:label :target}}}</code></td></tr><tr><td>Dispatch</td><td><code>{:dispatches {:start &#91;&#91;:label &#40;fn &#91;d&#93; pred&#41;&#93;&#93;}}</code></td></tr><tr><td>Parallel join</td><td><code>{:joins {:name {:cells &#91;:a :b&#93; :strategy :parallel}}}</code></td></tr><tr><td>Run workflow</td><td><code>&#40;myc/run-workflow wf resources data&#41;</code></td></tr><tr><td>Run with warnings</td><td><code>&#40;myc/run-workflow wf res data {:validate :warn}&#41;</code></td></tr><tr><td>Run without validation</td><td><code>&#40;myc/run-workflow wf res data {:validate :off}&#41;</code></td></tr><tr><td>Pre-compile</td><td><code>&#40;def c &#40;myc/pre-compile wf&#41;&#41;</code> then <code>&#40;myc/run-compiled c res data&#41;</code></td></tr><tr><td>Check error</td><td><code>&#40;myc/workflow-error result&#41;</code> — includes <code>:key-diff</code> suggestions</td></tr><tr><td>Infer schemas</td><td><code>&#40;dev/infer-schemas wf res &#91;test-data ...&#93;&#41;</code></td></tr><tr><td>Apply inferred</td><td><code>&#40;dev/apply-inferred-schemas! inferred wf&#41;</code></td></tr><tr><td>Test cell</td><td><code>&#40;dev/test-cell :ns/id {:input {...}}&#41;</code></td></tr><tr><td>Generate stubs</td><td><code>&#40;println &#40;myc/generate-stubs wf&#41;&#41;</code></td></tr><tr><td>Coerce types</td><td><code>&#40;myc/pre-compile wf {:coerce? true}&#41;</code></td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/developing-workflows.html">
+            Developing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/error-handling.html">
+            Error Handling
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/cookbook.html">
+            Cookbook
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/llm-guide.html">
+            LLM Implementation Guide
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>
