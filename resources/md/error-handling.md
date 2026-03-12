@@ -61,17 +61,33 @@ Schema errors are the most detailed. When a cell's input or output fails Malli v
 {:cell-id     :app/process-payment
  :cell-name   :payment
  :phase       :input           ;; or :output
- :message     "Schema input validation failed at payment (:app/process-payment) — failing keys: (:amount :currency)"
+ :message     "Schema input validation failed at payment (:app/process-payment)
+   Missing key(s): #{:currency}
+   Extra key(s): #{:curr}"
  :failed-keys {:amount   {:value "not-a-number"
                            :type  "java.lang.String"
                            :message "should be a double"}
                 :currency {:value nil
                            :type  nil
                            :message "missing required key"}}
+ :key-diff    {:missing #{:currency}   ;; expected by schema but not in data
+               :extra   #{:curr}}      ;; in data but not in schema (possible typo)
  :cell-path   [:validate :lookup]   ;; cells that ran before this one
  :errors      {:amount ["should be a double"]
                :currency ["missing required key"]}
  :data        {:user-id "alice"}}   ;; clean data (no :mycelium/* keys)
+```
+
+### Key-Diff Suggestions
+
+The `:key-diff` field helps identify typos and misnamed keys. When a schema expects `:currency` but the data contains `:curr`, the diff makes the fix obvious:
+
+```clojure
+(when-let [{:keys [key-diff]} (myc/workflow-error result)]
+  (when (seq (:missing key-diff))
+    (println "Missing keys:" (:missing key-diff)))
+  (when (seq (:extra key-diff))
+    (println "Extra keys (possible typos):" (:extra key-diff))))
 ```
 
 ### Diagnosing Schema Failures
@@ -112,6 +128,30 @@ Validate initial workflow data before any cells run:
 
 No cells execute when input validation fails.
 
+## Validation Modes
+
+Control how schema errors are handled with the `:validate` option:
+
+```clojure
+;; :strict (default) — halt on first schema error
+(myc/run-workflow wf resources data)
+(myc/run-workflow wf resources data {:validate :strict})
+
+;; :warn — log warnings, continue execution
+(let [result (myc/run-workflow wf resources data {:validate :warn})]
+  (println (:mycelium/warnings result)))
+;; => [{:cell-id :app/tax, :phase :output,
+;;      :message "Schema output validation failed at :app/tax
+;;        Missing key(s): #{:tax}
+;;        Extra key(s): #{:tax-amount}",
+;;      :key-diff {:missing #{:tax}, :extra #{:tax-amount}}}]
+
+;; :off — skip all schema validation
+(myc/run-workflow wf resources data {:validate :off})
+```
+
+Use `:warn` during iterative development to see all problems at once. Use `:off` for early prototyping when schemas aren't ready. Switch to `:strict` for production.
+
 ## Error Groups
 
 Error groups assign a shared error handler to multiple cells. When any grouped cell's handler throws an exception, the exception is caught, `:mycelium/error` is set on data, and execution routes to the error handler.
@@ -140,11 +180,12 @@ At compile time, the framework:
 The error handler receives the full data map with `:mycelium/error`:
 
 ```clojure
-(cell/defcell :data/handle-error
-  {:input [:map] :output [:map [:error-page :string]]}
-  (fn [_ data]
-    (let [{:keys [cell message]} (:mycelium/error data)]
-      {:error-page (str "Failed at " (name cell) ": " message)})))
+(defmethod cell/cell-spec :data/handle-error [_]
+  {:id      :data/handle-error
+   :handler (fn [_ data]
+              (let [{:keys [cell message]} (:mycelium/error data)]
+                {:error-page (str "Failed at " (name cell) ": " message)}))
+   :schema  {:input [:map] :output [:map [:error-page :string]]}})
 ```
 
 ### Error Recovery
@@ -152,13 +193,14 @@ The error handler receives the full data map with `:mycelium/error`:
 An error handler can clear the error and attempt recovery:
 
 ```clojure
-(cell/defcell :order/retry-with-backup
-  {:input [:map] :output [:map [:result :string]]}
-  (fn [{:keys [backup-gateway]} data]
-    (let [{:keys [cell message]} (:mycelium/error data)]
-      (log/warn "Primary failed at" cell ":" message)
-      (-> (dissoc data :mycelium/error)
-          (assoc :result (call-backup backup-gateway data))))))
+(defmethod cell/cell-spec :order/retry-with-backup [_]
+  {:id      :order/retry-with-backup
+   :handler (fn [{:keys [backup-gateway]} data]
+              (let [{:keys [cell message]} (:mycelium/error data)]
+                (log/warn "Primary failed at" cell ":" message)
+                (-> (dissoc data :mycelium/error)
+                    (assoc :result (call-backup backup-gateway data)))))
+   :schema  {:input [:map] :output [:map [:result :string]]}})
 ```
 
 If the recovery cell itself throws and is in an error group, the error routes to its group's handler.
@@ -431,13 +473,14 @@ Pass correlation IDs or request context through the workflow using data keys:
 
 ;; Every cell receives :request-id and :user-id via key propagation
 ;; Include in error handling:
-(cell/defcell :app/handle-error
-  {:input [:map] :output [:map [:error-page :string]]}
-  (fn [_ data]
-    (log/error {:request-id (:request-id data)
-                :user-id    (:user-id data)
-                :error      (:mycelium/error data)})
-    {:error-page "Something went wrong"}))
+(defmethod cell/cell-spec :app/handle-error [_]
+  {:id      :app/handle-error
+   :handler (fn [_ data]
+              (log/error {:request-id (:request-id data)
+                          :user-id    (:user-id data)
+                          :error      (:mycelium/error data)})
+              {:error-page "Something went wrong"})
+   :schema  {:input [:map] :output [:map [:error-page :string]]}})
 ```
 
 ### Structured Error Responses for APIs

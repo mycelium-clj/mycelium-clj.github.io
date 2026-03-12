@@ -157,15 +157,16 @@ Each cell is implemented independently. A cell needs only its own schema to be i
 Every cell follows the same pattern:
 
 ```clojure
-(cell/defcell :loan/classify-risk
-  {:input  [:map [:credit-score :int]]
-   :output [:map [:risk-level [:enum :low :medium :high]]]}
-  (fn [_resources data]
-    (let [score (:credit-score data)]
-      {:risk-level (cond
-                     (>= score 720) :low
-                     (>= score 620) :medium
-                     :else          :high)})))
+(defmethod cell/cell-spec :loan/classify-risk [_]
+  {:id      :loan/classify-risk
+   :handler (fn [_resources data]
+              (let [score (:credit-score data)]
+                {:risk-level (cond
+                               (>= score 720) :low
+                               (>= score 620) :medium
+                               :else          :high)}))
+   :schema  {:input  [:map [:credit-score :int]]
+             :output [:map [:risk-level [:enum :low :medium :high]]]}})
 ```
 
 Key principles:
@@ -177,18 +178,19 @@ Key principles:
 **Side effects through resources.** When a cell needs a database or API, it receives it via the resources map:
 
 ```clojure
-(cell/defcell :loan/credit-bureau-lookup
-  {:input    [:map [:applicant-name :string]]
-   :output   [:map [:credit-history [:map
-                                      [:accounts :int]
-                                      [:late-payments :int]
-                                      [:bankruptcies :int]
-                                      [:years-of-history :int]]]]
-   :requires [:credit-db]}
-  (fn [{:keys [credit-db]} data]
-    (let [history (get credit-db (:applicant-name data))]
-      {:credit-history (or history {:accounts 0 :late-payments 0
-                                     :bankruptcies 0 :years-of-history 0})})))
+(defmethod cell/cell-spec :loan/credit-bureau-lookup [_]
+  {:id       :loan/credit-bureau-lookup
+   :handler  (fn [{:keys [credit-db]} data]
+               (let [history (get credit-db (:applicant-name data))]
+                 {:credit-history (or history {:accounts 0 :late-payments 0
+                                               :bankruptcies 0 :years-of-history 0})}))
+   :schema   {:input  [:map [:applicant-name :string]]
+              :output [:map [:credit-history [:map
+                                              [:accounts :int]
+                                              [:late-payments :int]
+                                              [:bankruptcies :int]
+                                              [:years-of-history :int]]]]}
+   :requires [:credit-db]})
 ```
 
 This keeps the cell testable — pass a mock `credit-db` in tests.
@@ -357,6 +359,44 @@ Verify that errors are caught and routed correctly:
 ---
 
 ## 7. Iterate and Refine
+
+### Validate Modes
+
+During development, use `:validate :warn` to see all schema problems without halting execution:
+
+```clojure
+(let [result (myc/run-workflow wf resources test-data {:validate :warn})]
+  ;; Workflow runs to completion even if schemas don't match
+  (println (:mycelium/warnings result)))
+;; => [{:cell-id :app/tax, :phase :output,
+;;      :message "Schema output validation failed at :app/tax
+;;        Missing key(s): #{:tax}
+;;        Extra key(s): #{:tax-amount}",
+;;      :key-diff {:missing #{:tax}, :extra #{:tax-amount}}}]
+```
+
+Or skip validation entirely during early prototyping:
+
+```clojure
+(myc/run-workflow wf resources test-data {:validate :off})
+```
+
+Switch to `:validate :strict` (the default) once logic is correct to enforce contracts.
+
+### Infer Schemas from Test Runs
+
+Write handlers first, let Mycelium figure out the schemas:
+
+```clojure
+(require '[mycelium.dev :as dev])
+
+(def inferred (dev/infer-schemas workflow-def {} [test-input-1 test-input-2]))
+;; => {:start {:input [:map [:x :int]], :output [:map [:x :int] [:result :int]]}
+;;     :step2 {:input [:map [:x :int] [:result :int]], :output [:map ...]}}
+
+;; Apply inferred schemas to cell registry
+(dev/apply-inferred-schemas! inferred workflow-def)
+```
 
 ### Use Dev Tools
 

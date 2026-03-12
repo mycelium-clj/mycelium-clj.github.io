@@ -121,11 +121,12 @@ At compile time, the framework expands unconditional edges to include `:on-error
 The error handler cell receives the full data map including `:mycelium/error`:
 
 ```clojure
-(cell/defcell :data/handle-error
-  {:input [:map] :output [:map [:error-page :string]]}
-  (fn [_ data]
-    (let [{:keys [cell message]} (:mycelium/error data)]
-      {:error-page (str "Failed at " cell ": " message)})))
+(defmethod cell/cell-spec :data/handle-error [_]
+  {:id      :data/handle-error
+   :handler (fn [_ data]
+              (let [{:keys [cell message]} (:mycelium/error data)]
+                {:error-page (str "Failed at " cell ": " message)}))
+   :schema  {:input [:map] :output [:map [:error-page :string]]}})
 ```
 
 ---
@@ -136,11 +137,12 @@ The error handler cell receives the full data map including `:mycelium/error`:
 
 ```clojure
 ;; 1. Cell signals halt
-(cell/defcell :review/request
-  {:input [:map [:item-id :string]] :output [:map]}
-  (fn [_ data]
-    {:mycelium/halt {:reason :needs-approval
-                     :item   (:item-id data)}}))
+(defmethod cell/cell-spec :review/request [_]
+  {:id      :review/request
+   :handler (fn [_ data]
+              {:mycelium/halt {:reason :needs-approval
+                               :item   (:item-id data)}})
+   :schema  {:input [:map [:item-id :string]] :output [:map]}})
 
 ;; 2. Run workflow — it halts
 (def compiled (myc/pre-compile workflow))
@@ -296,8 +298,8 @@ Graph-level timeouts **route** to a fallback cell. Resilience timeouts **error**
 (require '[mycelium.cell :as cell])
 
 (cell/defcell :order/compute-tax
-  {:input  [:map [:subtotal :double] [:tax-rate :double]]
-   :output [:map [:tax :double]]}
+  {:input  {:subtotal :double, :tax-rate :double}
+   :output {:tax :double}}
   (fn [resources data]
     ;; With key propagation (default): return only new keys
     {:tax (* (:subtotal data) (:tax-rate data))}))
@@ -739,16 +741,17 @@ Interceptor `:pre`/`:post` receive and return the data map. Scope forms: `:all`,
 The error handler cell can inspect what went wrong:
 
 ```clojure
-(cell/defcell :order/retry-with-backup
-  {:input  [:map [:card :string] [:total :double]]
-   :output [:map [:payment-result :string]]}
-  (fn [{:keys [backup-gateway]} data]
-    (let [{:keys [cell message]} (:mycelium/error data)]
-      (log/warn "Primary payment failed at" cell ":" message)
-      ;; Clear the error and retry with backup
-      (-> (dissoc data :mycelium/error)
-          (assoc :payment-result
-                 (charge backup-gateway (:card data) (:total data)))))))
+(defmethod cell/cell-spec :order/retry-with-backup [_]
+  {:id      :order/retry-with-backup
+   :handler (fn [{:keys [backup-gateway]} data]
+              (let [{:keys [cell message]} (:mycelium/error data)]
+                (log/warn "Primary payment failed at" cell ":" message)
+                ;; Clear the error and retry with backup
+                (-> (dissoc data :mycelium/error)
+                    (assoc :payment-result
+                           (charge backup-gateway (:card data) (:total data))))))
+   :schema {:input [:map [:card :string] [:total :double]]
+            :output [:map [:payment-result :string]]}})
 ```
 
 ---
@@ -805,14 +808,15 @@ This is a **diamond pattern** — three branches converge to `:notify`. Each bra
 When any join member throws, `:mycelium/join-error` is set on data with details of which members failed. The `:failure` edge is auto-dispatched. The recovery cell can inspect partial results:
 
 ```clojure
-(cell/defcell :order/partial-recovery
-  {:input [:map] :output [:map [:order-note :string] [:total number?]]}
-  (fn [_ data]
-    (let [errors (:mycelium/join-error data)]
-      ;; errors is a seq of {:cell-id :order/calc-shipping, :cell :shipping, ...}
-      ;; Successfully completed members' outputs are already merged into data
-      {:order-note (str "Completed with " (count errors) " service(s) unavailable")
-       :total (or (:tax data) 0)})))
+(defmethod cell/cell-spec :order/partial-recovery [_]
+  {:id      :order/partial-recovery
+   :handler (fn [_ data]
+              (let [errors (:mycelium/join-error data)]
+                ;; errors is a seq of {:cell-id :order/calc-shipping, :cell :shipping, ...}
+                ;; Successfully completed members' outputs are already merged into data
+                {:order-note (str "Completed with " (count errors) " service(s) unavailable")
+                 :total (or (:tax data) 0)}))
+   :schema {:input [:map] :output [:map [:order-note :string] [:total number?]]}})
 ```
 
 ### Resolving Output Key Conflicts
@@ -876,12 +880,13 @@ The `:default` edge fires only when no predicate matches — it's the else branc
 
 ```clojure
 ;; Declare what a cell needs
-(cell/defcell :user/lookup
-  {:input    [:map [:user-id :string]]
-   :output   [:map [:user [:map [:name :string] [:email :string]]]]
-   :requires [:db]}
-  (fn [{:keys [db]} data]
-    {:user (db/find-user db (:user-id data))}))
+(defmethod cell/cell-spec :user/lookup [_]
+  {:id       :user/lookup
+   :requires [:db]
+   :handler  (fn [{:keys [db]} data]
+               {:user (db/find-user db (:user-id data))})
+   :schema   {:input  [:map [:user-id :string]]
+              :output [:map [:user [:map [:name :string] [:email :string]]]]}})
 
 ;; Provide resources at run time
 (myc/run-compiled compiled

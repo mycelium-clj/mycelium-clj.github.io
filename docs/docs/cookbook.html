@@ -220,8 +220,8 @@
 </code></pre><p><code>workflow-error</code> returns nil on success, or a map with <code>:error-type</code>, <code>:message</code>, <code>:details</code> (plus <code>:cell-id</code>, <code>:cell-name</code>, <code>:cell</code>, <code>:cell-path</code>, <code>:failed-keys</code> where applicable). The <code>:message</code> includes the cell name and specific failing keys for easy diagnosis.<h2></h2></p><h2 id="write&#95;a&#95;cell">Write a Cell</h2><p><strong>Problem:</strong> You need to implement a cell with explicit input/output contracts.</p><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;&#41;
 
 &#40;cell/defcell :order/compute-tax
-  {:input  &#91;:map &#91;:subtotal :double&#93; &#91;:tax-rate :double&#93;&#93;
-   :output &#91;:map &#91;:tax :double&#93;&#93;}
+  {:input  {:subtotal :double, :tax-rate :double}
+   :output {:tax :double}}
   &#40;fn &#91;resources data&#93;
     ;; With key propagation &#40;default&#41;: return only new keys
     {:tax &#40;&#42; &#40;:subtotal data&#41; &#40;:tax-rate data&#41;&#41;}&#41;&#41;

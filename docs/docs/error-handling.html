@@ -59,7 +59,7 @@
       <h1>Error Handling</h1>
       
       <h2>Contents</h2>
-      <ol class="contents"><li><a href="#error_handling">Error Handling</a></li><li><a href="#error_taxonomy">Error Taxonomy</a></li><li><a href="#unified_error_inspection">Unified Error Inspection</a></li><li><a href="#schema_validation_errors">Schema Validation Errors</a><ol><li><a href="#diagnosing_schema_failures">Diagnosing Schema Failures</a></li><li><a href="#input_validation">Input Validation</a></li></ol></li><li><a href="#error_groups">Error Groups</a><ol><li><a href="#error_recovery">Error Recovery</a></li></ol></li><li><a href="#graph-level_timeouts">Graph-Level Timeouts</a><ol><li><a href="#cascading_timeouts">Cascading Timeouts</a></li><li><a href="#timeouts_vs_resilience_timeouts">Timeouts vs Resilience Timeouts</a></li></ol></li><li><a href="#resilience_policies">Resilience Policies</a></li><li><a href="#join_errors">Join Errors</a></li><li><a href="#execution_tracing">Execution Tracing</a><ol><li><a href="#live_tracing">Live Tracing</a></li><li><a href="#custom_trace_callbacks">Custom Trace Callbacks</a></li><li><a href="#post-run_trace_analysis">Post-Run Trace Analysis</a></li></ol></li><li><a href="#error_handling_patterns">Error Handling Patterns</a><ol><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#errors_as_routing_decisions">Errors as Routing Decisions</a></li><li><a href="#layered_error_strategy">Layered Error Strategy</a></li><li><a href="#request_context_propagation">Request Context Propagation</a></li><li><a href="#structured_error_responses_for_apis">Structured Error Responses for APIs</a></li></ol></li><li><a href="#static_analysis">Static Analysis</a><ol><li><a href="#compile-time_constraints">Compile-Time Constraints</a></li></ol></li></ol>
+      <ol class="contents"><li><a href="#error_handling">Error Handling</a></li><li><a href="#error_taxonomy">Error Taxonomy</a></li><li><a href="#unified_error_inspection">Unified Error Inspection</a></li><li><a href="#schema_validation_errors">Schema Validation Errors</a><ol><li><a href="#key-diff_suggestions">Key-Diff Suggestions</a></li><li><a href="#diagnosing_schema_failures">Diagnosing Schema Failures</a></li><li><a href="#input_validation">Input Validation</a></li></ol></li><li><a href="#validation_modes">Validation Modes</a></li><li><a href="#error_groups">Error Groups</a><ol><li><a href="#error_recovery">Error Recovery</a></li></ol></li><li><a href="#graph-level_timeouts">Graph-Level Timeouts</a><ol><li><a href="#cascading_timeouts">Cascading Timeouts</a></li><li><a href="#timeouts_vs_resilience_timeouts">Timeouts vs Resilience Timeouts</a></li></ol></li><li><a href="#resilience_policies">Resilience Policies</a></li><li><a href="#join_errors">Join Errors</a></li><li><a href="#execution_tracing">Execution Tracing</a><ol><li><a href="#live_tracing">Live Tracing</a></li><li><a href="#custom_trace_callbacks">Custom Trace Callbacks</a></li><li><a href="#post-run_trace_analysis">Post-Run Trace Analysis</a></li></ol></li><li><a href="#error_handling_patterns">Error Handling Patterns</a><ol><li><a href="#errors_are_data,_not_exceptions">Errors Are Data, Not Exceptions</a></li><li><a href="#errors_as_routing_decisions">Errors as Routing Decisions</a></li><li><a href="#layered_error_strategy">Layered Error Strategy</a></li><li><a href="#request_context_propagation">Request Context Propagation</a></li><li><a href="#structured_error_responses_for_apis">Structured Error Responses for APIs</a></li></ol></li><li><a href="#static_analysis">Static Analysis</a><ol><li><a href="#compile-time_constraints">Compile-Time Constraints</a></li></ol></li></ol>
       
       <div id="content">
         <h1 id="error&#95;handling">Error Handling</h1><p>Mycelium treats errors as data flowing through the workflow graph, not as exceptions that unwind the stack. This guide covers the error taxonomy, how to handle errors at different levels, and how to build diagnostics and observability into your workflows.</p><h2 id="error&#95;taxonomy">Error Taxonomy</h2><p>Mycelium has six error categories, each stored as a namespaced key on the data map:</p><table><thead><tr><th>Key</th><th>When Set</th><th>Structure</th></tr></thead><tbody><tr><td><code>:mycelium/input-error</code></td><td>Initial data fails <code>:input-schema</code> validation</td><td><code>{:errors ..., :data ...}</code></td></tr><tr><td><code>:mycelium/schema-error</code></td><td>Cell input/output fails Malli schema</td><td><code>{:cell-id, :cell-name, :phase, :message, :failed-keys, :cell-path, :errors, :data}</code></td></tr><tr><td><code>:mycelium/error</code></td><td>Cell handler throws (caught by error group)</td><td><code>{:cell :cell-name, :message &quot;...&quot;}</code></td></tr><tr><td><code>:mycelium/resilience-error</code></td><td>Resilience policy triggers</td><td><code>{:type :timeout\</td></tr><tr><td><code>:mycelium/join-error</code></td><td>One or more join members fail</td><td>Seq of <code>{:cell-id, :cell, :message, ...}</code></td></tr><tr><td><code>:mycelium/timeout</code></td><td>Cell exceeds graph-level timeout</td><td><code>true</code></td></tr></tbody></table><p>These are mutually exclusive — a workflow result contains at most one error key.</p><h2 id="unified&#95;error&#95;inspection">Unified Error Inspection</h2><p>Rather than checking each key individually, use the <code>workflow-error</code> and <code>error?</code> functions:</p><pre><code class="clojure">&#40;require '&#91;mycelium.core :as myc&#93;&#41;
@@ -85,17 +85,26 @@
 {:cell-id     :app/process-payment
  :cell-name   :payment
  :phase       :input           ;; or :output
- :message     &quot;Schema input validation failed at payment &#40;:app/process-payment&#41; — failing keys: &#40;:amount :currency&#41;&quot;
+ :message     &quot;Schema input validation failed at payment &#40;:app/process-payment&#41;
+   Missing key&#40;s&#41;: #{:currency}
+   Extra key&#40;s&#41;: #{:curr}&quot;
  :failed-keys {:amount   {:value &quot;not-a-number&quot;
                            :type  &quot;java.lang.String&quot;
                            :message &quot;should be a double&quot;}
                 :currency {:value nil
                            :type  nil
                            :message &quot;missing required key&quot;}}
+ :key-diff    {:missing #{:currency}   ;; expected by schema but not in data
+               :extra   #{:curr}}      ;; in data but not in schema &#40;possible typo&#41;
  :cell-path   &#91;:validate :lookup&#93;   ;; cells that ran before this one
  :errors      {:amount &#91;&quot;should be a double&quot;&#93;
                :currency &#91;&quot;missing required key&quot;&#93;}
  :data        {:user-id &quot;alice&quot;}}   ;; clean data &#40;no :mycelium/&#42; keys&#41;
+</code></pre><h3 id="key-diff&#95;suggestions">Key-Diff Suggestions</h3><p>The <code>:key-diff</code> field helps identify typos and misnamed keys. When a schema expects <code>:currency</code> but the data contains <code>:curr</code>, the diff makes the fix obvious:</p><pre><code class="clojure">&#40;when-let &#91;{:keys &#91;key-diff&#93;} &#40;myc/workflow-error result&#41;&#93;
+  &#40;when &#40;seq &#40;:missing key-diff&#41;&#41;
+    &#40;println &quot;Missing keys:&quot; &#40;:missing key-diff&#41;&#41;&#41;
+  &#40;when &#40;seq &#40;:extra key-diff&#41;&#41;
+    &#40;println &quot;Extra keys &#40;possible typos&#41;:&quot; &#40;:extra key-diff&#41;&#41;&#41;&#41;
 </code></pre><h3 id="diagnosing&#95;schema&#95;failures">Diagnosing Schema Failures</h3><p>The <code>:failed-keys</code> map gives you per-key diagnostics — the actual value, its Java type, and what Malli expected:</p><pre><code class="clojure">&#40;when-let &#91;{:keys &#91;message failed-keys cell-path&#93;} &#40;myc/workflow-error result&#41;&#93;
   &#40;println message&#41;
   ;; &quot;Schema input validation failed at payment &#40;:app/process-payment&#41; — failing keys: &#40;:amount :currency&#41;&quot;
@@ -118,7 +127,22 @@
   &#40;:mycelium/input-error result&#41;&#41;
 ;; =&gt; {:errors {:user-id &#91;&quot;should be a string&quot;&#93;, :amount &#91;&quot;missing required key&quot;&#93;}
 ;;     :data {:user-id 123}}
-</code></pre><p>No cells execute when input validation fails.</p><h2 id="error&#95;groups">Error Groups</h2><p>Error groups assign a shared error handler to multiple cells. When any grouped cell's handler throws an exception, the exception is caught, <code>:mycelium/error</code> is set on data, and execution routes to the error handler.</p><pre><code class="clojure">&#40;def workflow
+</code></pre><p>No cells execute when input validation fails.</p><h2 id="validation&#95;modes">Validation Modes</h2><p>Control how schema errors are handled with the <code>:validate</code> option:</p><pre><code class="clojure">;; :strict &#40;default&#41; — halt on first schema error
+&#40;myc/run-workflow wf resources data&#41;
+&#40;myc/run-workflow wf resources data {:validate :strict}&#41;
+
+;; :warn — log warnings, continue execution
+&#40;let &#91;result &#40;myc/run-workflow wf resources data {:validate :warn}&#41;&#93;
+  &#40;println &#40;:mycelium/warnings result&#41;&#41;&#41;
+;; =&gt; &#91;{:cell-id :app/tax, :phase :output,
+;;      :message &quot;Schema output validation failed at :app/tax
+;;        Missing key&#40;s&#41;: #{:tax}
+;;        Extra key&#40;s&#41;: #{:tax-amount}&quot;,
+;;      :key-diff {:missing #{:tax}, :extra #{:tax-amount}}}&#93;
+
+;; :off — skip all schema validation
+&#40;myc/run-workflow wf resources data {:validate :off}&#41;
+</code></pre><p>Use <code>:warn</code> during iterative development to see all problems at once. Use <code>:off</code> for early prototyping when schemas aren't ready. Switch to <code>:strict</code> for production.</p><h2 id="error&#95;groups">Error Groups</h2><p>Error groups assign a shared error handler to multiple cells. When any grouped cell's handler throws an exception, the exception is caught, <code>:mycelium/error</code> is set on data, and execution routes to the error handler.</p><pre><code class="clojure">&#40;def workflow
   {:cells {:start     :data/fetch
            :transform :data/transform
            :render    :data/render
