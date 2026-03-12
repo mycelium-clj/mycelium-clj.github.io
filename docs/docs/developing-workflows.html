@@ -115,27 +115,29 @@
 
 ;; Weak: tells you nothing about valid values
 :output &#91;:map &#91;:decision :keyword&#93;&#93;
-</code></pre><p><strong>Use per-transition output schemas</strong> when a cell branches. This lets the schema chain validator verify that each downstream path receives the right shape.</p><p><strong>Use open schemas (<code>:map</code>) for cells that receive external input</strong> (e.g., after halt/resume), since the schema chain can't track keys injected from outside.<h2></h2></p><h2 id="4.&#95;implement&#95;cells">4. Implement Cells</h2><p>Each cell is implemented independently. A cell needs only its own schema to be implemented correctly — you don't need to read any other cell's code.</p><h3 id="cell&#95;structure">Cell Structure</h3><p>Every cell follows the same pattern:</p><pre><code class="clojure">&#40;cell/defcell :loan/classify-risk
-  {:input  &#91;:map &#91;:credit-score :int&#93;&#93;
-   :output &#91;:map &#91;:risk-level &#91;:enum :low :medium :high&#93;&#93;&#93;}
-  &#40;fn &#91;&#95;resources data&#93;
-    &#40;let &#91;score &#40;:credit-score data&#41;&#93;
-      {:risk-level &#40;cond
-                     &#40;&gt;= score 720&#41; :low
-                     &#40;&gt;= score 620&#41; :medium
-                     :else          :high&#41;}&#41;&#41;&#41;
-</code></pre><p>Key principles:</p><p><strong>One thing well.</strong> This cell classifies risk. It doesn't also calculate the score or decide eligibility. Each cell is a single, testable transformation.</p><p><strong>Pure data in, data out.</strong> The handler receives <code>resources</code> and <code>data</code>, returns new keys. No global state, no side-channel communication between cells.</p><p><strong>Side effects through resources.</strong> When a cell needs a database or API, it receives it via the resources map:</p><pre><code class="clojure">&#40;cell/defcell :loan/credit-bureau-lookup
-  {:input    &#91;:map &#91;:applicant-name :string&#93;&#93;
-   :output   &#91;:map &#91;:credit-history &#91;:map
-                                      &#91;:accounts :int&#93;
-                                      &#91;:late-payments :int&#93;
-                                      &#91;:bankruptcies :int&#93;
-                                      &#91;:years-of-history :int&#93;&#93;&#93;&#93;
-   :requires &#91;:credit-db&#93;}
-  &#40;fn &#91;{:keys &#91;credit-db&#93;} data&#93;
-    &#40;let &#91;history &#40;get credit-db &#40;:applicant-name data&#41;&#41;&#93;
-      {:credit-history &#40;or history {:accounts 0 :late-payments 0
-                                     :bankruptcies 0 :years-of-history 0}&#41;}&#41;&#41;&#41;
+</code></pre><p><strong>Use per-transition output schemas</strong> when a cell branches. This lets the schema chain validator verify that each downstream path receives the right shape.</p><p><strong>Use open schemas (<code>:map</code>) for cells that receive external input</strong> (e.g., after halt/resume), since the schema chain can't track keys injected from outside.<h2></h2></p><h2 id="4.&#95;implement&#95;cells">4. Implement Cells</h2><p>Each cell is implemented independently. A cell needs only its own schema to be implemented correctly — you don't need to read any other cell's code.</p><h3 id="cell&#95;structure">Cell Structure</h3><p>Every cell follows the same pattern:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :loan/classify-risk &#91;&#95;&#93;
+  {:id      :loan/classify-risk
+   :handler &#40;fn &#91;&#95;resources data&#93;
+              &#40;let &#91;score &#40;:credit-score data&#41;&#93;
+                {:risk-level &#40;cond
+                               &#40;&gt;= score 720&#41; :low
+                               &#40;&gt;= score 620&#41; :medium
+                               :else          :high&#41;}&#41;&#41;
+   :schema  {:input  &#91;:map &#91;:credit-score :int&#93;&#93;
+             :output &#91;:map &#91;:risk-level &#91;:enum :low :medium :high&#93;&#93;&#93;}}&#41;
+</code></pre><p>Key principles:</p><p><strong>One thing well.</strong> This cell classifies risk. It doesn't also calculate the score or decide eligibility. Each cell is a single, testable transformation.</p><p><strong>Pure data in, data out.</strong> The handler receives <code>resources</code> and <code>data</code>, returns new keys. No global state, no side-channel communication between cells.</p><p><strong>Side effects through resources.</strong> When a cell needs a database or API, it receives it via the resources map:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :loan/credit-bureau-lookup &#91;&#95;&#93;
+  {:id       :loan/credit-bureau-lookup
+   :handler  &#40;fn &#91;{:keys &#91;credit-db&#93;} data&#93;
+               &#40;let &#91;history &#40;get credit-db &#40;:applicant-name data&#41;&#41;&#93;
+                 {:credit-history &#40;or history {:accounts 0 :late-payments 0
+                                               :bankruptcies 0 :years-of-history 0}&#41;}&#41;&#41;
+   :schema   {:input  &#91;:map &#91;:applicant-name :string&#93;&#93;
+              :output &#91;:map &#91;:credit-history &#91;:map
+                                              &#91;:accounts :int&#93;
+                                              &#91;:late-payments :int&#93;
+                                              &#91;:bankruptcies :int&#93;
+                                              &#91;:years-of-history :int&#93;&#93;&#93;&#93;}
+   :requires &#91;:credit-db&#93;}&#41;
 </code></pre><p>This keeps the cell testable — pass a mock <code>credit-db</code> in tests.</p><p><strong>Errors are data, not exceptions.</strong> When a cell encounters an expected failure (invalid input, resource not found), set a key on the data map and let the graph route it:</p><pre><code class="clojure">;; The cell sets :validation-status — it does NOT throw
 &#40;if &#40;valid? data&#41;
   {:validation-status :valid}

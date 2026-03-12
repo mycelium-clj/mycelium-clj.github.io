@@ -118,17 +118,19 @@
 
    :error-groups {:pipeline {:cells &#91;:start :transform :render&#93;
                               :on-error :err}}}&#41;
-</code></pre><p>At compile time, the framework expands unconditional edges to include <code>:on-error</code> targets and injects dispatch predicates. If any grouped cell throws, <code>:mycelium/error</code> is set on data with <code>{:cell :cell-name, :message &quot;...&quot;}</code> and the error handler runs.</p><p>The error handler cell receives the full data map including <code>:mycelium/error</code>:</p><pre><code class="clojure">&#40;cell/defcell :data/handle-error
-  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}
-  &#40;fn &#91;&#95; data&#93;
-    &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
-      {:error-page &#40;str &quot;Failed at &quot; cell &quot;: &quot; message&#41;}&#41;&#41;&#41;
+</code></pre><p>At compile time, the framework expands unconditional edges to include <code>:on-error</code> targets and injects dispatch predicates. If any grouped cell throws, <code>:mycelium/error</code> is set on data with <code>{:cell :cell-name, :message &quot;...&quot;}</code> and the error handler runs.</p><p>The error handler cell receives the full data map including <code>:mycelium/error</code>:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :data/handle-error &#91;&#95;&#93;
+  {:id      :data/handle-error
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                {:error-page &#40;str &quot;Failed at &quot; cell &quot;: &quot; message&#41;}&#41;&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}}&#41;
 </code></pre><h2></h2><h2 id="add&#95;a&#95;human&#95;approval&#95;gate&#95;(halt/resume)">Add a Human Approval Gate (Halt/Resume)</h2><p><strong>Problem:</strong> A workflow must pause for human review before continuing.</p><pre><code class="clojure">;; 1. Cell signals halt
-&#40;cell/defcell :review/request
-  {:input &#91;:map &#91;:item-id :string&#93;&#93; :output &#91;:map&#93;}
-  &#40;fn &#91;&#95; data&#93;
-    {:mycelium/halt {:reason :needs-approval
-                     :item   &#40;:item-id data&#41;}}&#41;&#41;
+&#40;defmethod cell/cell-spec :review/request &#91;&#95;&#93;
+  {:id      :review/request
+   :handler &#40;fn &#91;&#95; data&#93;
+              {:mycelium/halt {:reason :needs-approval
+                               :item   &#40;:item-id data&#41;}}&#41;
+   :schema  {:input &#91;:map &#91;:item-id :string&#93;&#93; :output &#91;:map&#93;}}&#41;
 
 ;; 2. Run workflow — it halts
 &#40;def compiled &#40;myc/pre-compile workflow&#41;&#41;
@@ -472,16 +474,17 @@
 
    :error-groups {:payment {:cells &#91;:start :retry-pay&#93;
                              :on-error :err}}}&#41;
-</code></pre><p>The error handler cell can inspect what went wrong:</p><pre><code class="clojure">&#40;cell/defcell :order/retry-with-backup
-  {:input  &#91;:map &#91;:card :string&#93; &#91;:total :double&#93;&#93;
-   :output &#91;:map &#91;:payment-result :string&#93;&#93;}
-  &#40;fn &#91;{:keys &#91;backup-gateway&#93;} data&#93;
-    &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
-      &#40;log/warn &quot;Primary payment failed at&quot; cell &quot;:&quot; message&#41;
-      ;; Clear the error and retry with backup
-      &#40;-&gt; &#40;dissoc data :mycelium/error&#41;
-          &#40;assoc :payment-result
-                 &#40;charge backup-gateway &#40;:card data&#41; &#40;:total data&#41;&#41;&#41;&#41;&#41;&#41;&#41;
+</code></pre><p>The error handler cell can inspect what went wrong:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :order/retry-with-backup &#91;&#95;&#93;
+  {:id      :order/retry-with-backup
+   :handler &#40;fn &#91;{:keys &#91;backup-gateway&#93;} data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                &#40;log/warn &quot;Primary payment failed at&quot; cell &quot;:&quot; message&#41;
+                ;; Clear the error and retry with backup
+                &#40;-&gt; &#40;dissoc data :mycelium/error&#41;
+                    &#40;assoc :payment-result
+                           &#40;charge backup-gateway &#40;:card data&#41; &#40;:total data&#41;&#41;&#41;&#41;&#41;&#41;
+   :schema {:input &#91;:map &#91;:card :string&#93; &#91;:total :double&#93;&#93;
+            :output &#91;:map &#91;:payment-result :string&#93;&#93;}}&#41;
 </code></pre><h2></h2><h2 id="route&#95;a&#95;multi-way&#95;decision">Route a Multi-Way Decision</h2><p><strong>Problem:</strong> A cell needs to route to 3+ different paths based on its output.</p><pre><code class="clojure">&#40;def workflow
   {:cells {:start    :loan/evaluate
            :approve  :loan/auto-approve
@@ -513,14 +516,15 @@
            :fees    {:done :total, :failure :partial}
            :total   :end
            :partial :end}}&#41;
-</code></pre><p>When any join member throws, <code>:mycelium/join-error</code> is set on data with details of which members failed. The <code>:failure</code> edge is auto-dispatched. The recovery cell can inspect partial results:</p><pre><code class="clojure">&#40;cell/defcell :order/partial-recovery
-  {:input &#91;:map&#93; :output &#91;:map &#91;:order-note :string&#93; &#91;:total number?&#93;&#93;}
-  &#40;fn &#91;&#95; data&#93;
-    &#40;let &#91;errors &#40;:mycelium/join-error data&#41;&#93;
-      ;; errors is a seq of {:cell-id :order/calc-shipping, :cell :shipping, ...}
-      ;; Successfully completed members' outputs are already merged into data
-      {:order-note &#40;str &quot;Completed with &quot; &#40;count errors&#41; &quot; service&#40;s&#41; unavailable&quot;&#41;
-       :total &#40;or &#40;:tax data&#41; 0&#41;}&#41;&#41;&#41;
+</code></pre><p>When any join member throws, <code>:mycelium/join-error</code> is set on data with details of which members failed. The <code>:failure</code> edge is auto-dispatched. The recovery cell can inspect partial results:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :order/partial-recovery &#91;&#95;&#93;
+  {:id      :order/partial-recovery
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;let &#91;errors &#40;:mycelium/join-error data&#41;&#93;
+                ;; errors is a seq of {:cell-id :order/calc-shipping, :cell :shipping, ...}
+                ;; Successfully completed members' outputs are already merged into data
+                {:order-note &#40;str &quot;Completed with &quot; &#40;count errors&#41; &quot; service&#40;s&#41; unavailable&quot;&#41;
+                 :total &#40;or &#40;:tax data&#41; 0&#41;}&#41;&#41;
+   :schema {:input &#91;:map&#93; :output &#91;:map &#91;:order-note :string&#93; &#91;:total number?&#93;&#93;}}&#41;
 </code></pre><h3 id="resolving&#95;output&#95;key&#95;conflicts">Resolving Output Key Conflicts</h3><p>When parallel members produce overlapping keys, provide a <code>:merge-fn</code>:</p><pre><code class="clojure">:joins {:fetch-all {:cells    &#91;:fetch-a :fetch-b&#93;
                     :strategy :parallel
                     :merge-fn &#40;fn &#91;data results&#93;
@@ -544,12 +548,13 @@
    :dispatches {:start &#91;&#91;:premium  &#40;fn &#91;d&#93; &#40;= :premium &#40;:tier d&#41;&#41;&#41;&#93;
                         &#91;:standard &#40;fn &#91;d&#93; &#40;= :standard &#40;:tier d&#41;&#41;&#41;&#93;&#93;}}&#41;
 </code></pre><p>The <code>:default</code> edge fires only when no predicate matches — it's the else branch. No dispatch entry needed for <code>:default</code>.<h2></h2></p><h2 id="pass&#95;external&#95;dependencies&#95;via&#95;resources">Pass External Dependencies via Resources</h2><p><strong>Problem:</strong> Cells need database connections, HTTP clients, or configuration that shouldn't flow through the data map.</p><pre><code class="clojure">;; Declare what a cell needs
-&#40;cell/defcell :user/lookup
-  {:input    &#91;:map &#91;:user-id :string&#93;&#93;
-   :output   &#91;:map &#91;:user &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
-   :requires &#91;:db&#93;}
-  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
-    {:user &#40;db/find-user db &#40;:user-id data&#41;&#41;}&#41;&#41;
+&#40;defmethod cell/cell-spec :user/lookup &#91;&#95;&#93;
+  {:id       :user/lookup
+   :requires &#91;:db&#93;
+   :handler  &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
+               {:user &#40;db/find-user db &#40;:user-id data&#41;&#41;}&#41;
+   :schema   {:input  &#91;:map &#91;:user-id :string&#93;&#93;
+              :output &#91;:map &#91;:user &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;}}&#41;
 
 ;; Provide resources at run time
 &#40;myc/run-compiled compiled

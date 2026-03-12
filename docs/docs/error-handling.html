@@ -155,18 +155,20 @@
 
    :error-groups {:pipeline {:cells    &#91;:start :transform :render&#93;
                               :on-error :err}}}&#41;
-</code></pre><p>At compile time, the framework:</p><ol><li>Expands unconditional edges to include <code>:on-error</code> targets</li><li>Injects <code>:on-error</code> dispatch predicates (checked first)</li><li>Wraps grouped cell handlers with try/catch</li></ol><p>The error handler receives the full data map with <code>:mycelium/error</code>:</p><pre><code class="clojure">&#40;cell/defcell :data/handle-error
-  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}
-  &#40;fn &#91;&#95; data&#93;
-    &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
-      {:error-page &#40;str &quot;Failed at &quot; &#40;name cell&#41; &quot;: &quot; message&#41;}&#41;&#41;&#41;
-</code></pre><h3 id="error&#95;recovery">Error Recovery</h3><p>An error handler can clear the error and attempt recovery:</p><pre><code class="clojure">&#40;cell/defcell :order/retry-with-backup
-  {:input &#91;:map&#93; :output &#91;:map &#91;:result :string&#93;&#93;}
-  &#40;fn &#91;{:keys &#91;backup-gateway&#93;} data&#93;
-    &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
-      &#40;log/warn &quot;Primary failed at&quot; cell &quot;:&quot; message&#41;
-      &#40;-&gt; &#40;dissoc data :mycelium/error&#41;
-          &#40;assoc :result &#40;call-backup backup-gateway data&#41;&#41;&#41;&#41;&#41;&#41;
+</code></pre><p>At compile time, the framework:</p><ol><li>Expands unconditional edges to include <code>:on-error</code> targets</li><li>Injects <code>:on-error</code> dispatch predicates (checked first)</li><li>Wraps grouped cell handlers with try/catch</li></ol><p>The error handler receives the full data map with <code>:mycelium/error</code>:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :data/handle-error &#91;&#95;&#93;
+  {:id      :data/handle-error
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                {:error-page &#40;str &quot;Failed at &quot; &#40;name cell&#41; &quot;: &quot; message&#41;}&#41;&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}}&#41;
+</code></pre><h3 id="error&#95;recovery">Error Recovery</h3><p>An error handler can clear the error and attempt recovery:</p><pre><code class="clojure">&#40;defmethod cell/cell-spec :order/retry-with-backup &#91;&#95;&#93;
+  {:id      :order/retry-with-backup
+   :handler &#40;fn &#91;{:keys &#91;backup-gateway&#93;} data&#93;
+              &#40;let &#91;{:keys &#91;cell message&#93;} &#40;:mycelium/error data&#41;&#93;
+                &#40;log/warn &quot;Primary failed at&quot; cell &quot;:&quot; message&#41;
+                &#40;-&gt; &#40;dissoc data :mycelium/error&#41;
+                    &#40;assoc :result &#40;call-backup backup-gateway data&#41;&#41;&#41;&#41;&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:result :string&#93;&#93;}}&#41;
 </code></pre><p>If the recovery cell itself throws and is in an error group, the error routes to its group's handler.</p><h2 id="graph-level&#95;timeouts">Graph-Level Timeouts</h2><p>Graph-level timeouts route to a fallback cell instead of raising an error:</p><pre><code class="clojure">{:cells {:fetch    :data/fetch-remote
          :process  :data/process
          :fallback :data/use-default}
@@ -315,13 +317,14 @@
 
 ;; Every cell receives :request-id and :user-id via key propagation
 ;; Include in error handling:
-&#40;cell/defcell :app/handle-error
-  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}
-  &#40;fn &#91;&#95; data&#93;
-    &#40;log/error {:request-id &#40;:request-id data&#41;
-                :user-id    &#40;:user-id data&#41;
-                :error      &#40;:mycelium/error data&#41;}&#41;
-    {:error-page &quot;Something went wrong&quot;}&#41;&#41;
+&#40;defmethod cell/cell-spec :app/handle-error &#91;&#95;&#93;
+  {:id      :app/handle-error
+   :handler &#40;fn &#91;&#95; data&#93;
+              &#40;log/error {:request-id &#40;:request-id data&#41;
+                          :user-id    &#40;:user-id data&#41;
+                          :error      &#40;:mycelium/error data&#41;}&#41;
+              {:error-page &quot;Something went wrong&quot;}&#41;
+   :schema  {:input &#91;:map&#93; :output &#91;:map &#91;:error-page :string&#93;&#93;}}&#41;
 </code></pre><h3 id="structured&#95;error&#95;responses&#95;for&#95;apis">Structured Error Responses for APIs</h3><p>Build HTTP error responses from workflow errors:</p><pre><code class="clojure">&#40;defn workflow-handler &#91;compiled resources&#93;
   &#40;fn &#91;req&#93;
     &#40;let &#91;result &#40;myc/run-compiled compiled resources &#40;extract-input req&#41;&#41;&#93;
