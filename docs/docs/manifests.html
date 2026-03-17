@@ -75,7 +75,7 @@
 }
 </code></pre><h2 id="cell&#95;definitions&#95;in&#95;manifests">Cell Definitions in Manifests</h2><p>Each cell in the <code>:cells</code> map must have:</p><pre><code class="clojure">{:cell-name
  {:id       :namespace/cell-id      ;; cell registry ID
-  :doc      &quot;What this cell does&quot;   ;; optional
+  :doc      &quot;What this cell does&quot;   ;; required: describes purpose and semantics for LLMs
   :schema   {:input  &#91;:map ...&#93;     ;; Malli input schema
              :output &#91;:map ...&#93;     ;; or {:transition-label &#91;:map ...&#93;, ...}
             }                       ;; or :inherit — see below
@@ -142,7 +142,7 @@
 ;;     :requires &#91;:db&#93;
 ;;     :examples {:input {...}, :output {...}}
 ;;     :prompt &quot;## Cell: :auth/validate-session\n...&quot;}
-</code></pre><p>The <code>:prompt</code> string contains everything an LLM needs to implement the cell: schema, examples, dispatch rules, and coding constraints.</p><h2 id="manifest&#95;validation&#95;rules">Manifest Validation Rules</h2><p><code>validate-manifest</code> checks:</p><ul><li><code>:id</code> is present</li><li><code>:cells</code> is present and non-empty</li><li><code>:edges</code> is present (or <code>:pipeline</code> which expands to <code>:edges</code>)</li><li>Every cell has valid <code>:id</code>, <code>:schema</code> (with <code>:input</code> and <code>:output</code>, or <code>:inherit</code>), and <code>:on-error</code></li><li><code>:schema :inherit</code> cells have a registered cell with a schema in the registry</li><li><code>:on-error</code> targets exist in <code>:cells</code></li><li>All edge targets point to valid cells, joins, or terminal states (<code>:end</code>, <code>:error</code>, <code>:halt</code>)</li><li>Every non-join-member cell has an edge entry</li><li>Dispatch coverage: every edge label has a predicate, every predicate has an edge</li><li>All cells are reachable from <code>:start</code></li><li><code>:input-schema</code> is well-formed Malli (if present)</li><li>Join members have no edge entries</li><li>Join names don't collide with cell names</li></ul><h2 id="example:&#95;complete&#95;manifest">Example: Complete Manifest</h2><pre><code class="clojure">{:id :user-profile
+</code></pre><p>The <code>:prompt</code> string contains everything an LLM needs to implement the cell: schema, examples, dispatch rules, and coding constraints.</p><h2 id="manifest&#95;validation&#95;rules">Manifest Validation Rules</h2><p><code>validate-manifest</code> checks:</p><ul><li><code>:id</code> is present</li><li><code>:cells</code> is present and non-empty</li><li><code>:edges</code> is present (or <code>:pipeline</code> which expands to <code>:edges</code>)</li><li>Every cell has valid <code>:id</code>, <code>:doc</code> (non-empty string), <code>:schema</code> (with <code>:input</code> and <code>:output</code>, or <code>:inherit</code>), and <code>:on-error</code></li><li><code>:schema :inherit</code> cells have a registered cell with a schema in the registry</li><li><code>:on-error</code> targets exist in <code>:cells</code></li><li>All edge targets point to valid cells, joins, or terminal states (<code>:end</code>, <code>:error</code>, <code>:halt</code>)</li><li>Every non-join-member cell has an edge entry</li><li>Dispatch coverage: every edge label has a predicate, every predicate has an edge</li><li>All cells are reachable from <code>:start</code></li><li><code>:input-schema</code> is well-formed Malli (if present)</li><li>Join members have no edge entries</li><li>Join names don't collide with cell names</li></ul><h2 id="example:&#95;complete&#95;manifest">Example: Complete Manifest</h2><pre><code class="clojure">{:id :user-profile
  :doc &quot;Authenticate, fetch user by ID, render profile page&quot;
  :input-schema &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;
 
@@ -155,6 +155,7 @@
  :cells
  {:fetch-profile-by-id
   {:id       :user/fetch-profile-by-id
+   :doc      &quot;Fetches user profile by ID from the URL path parameter&quot;
    :schema   {:input  &#91;:map &#91;:http-request &#91;:map &#91;:path-params &#91;:map &#91;:id :string&#93;&#93;&#93;&#93;&#93;&#93;
               :output {:found     &#91;:map &#91;:profile map?&#93;&#93;
                        :not-found &#91;:map &#91;:error-type :keyword&#93;
@@ -164,6 +165,7 @@
 
   :render-profile
   {:id       :ui/render-user-profile
+   :doc      &quot;Renders the user profile page as HTML&quot;
    :schema   {:input  &#91;:map &#91;:profile &#91;:map &#91;:id :string&#93; &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
               :output &#91;:map &#91;:html :string&#93;&#93;}
    :on-error :render-error
@@ -171,6 +173,7 @@
 
   :render-error
   {:id       :ui/render-error
+   :doc      &quot;Renders an error page with status code&quot;
    :schema   {:input  &#91;:map&#93;
               :output &#91;:map &#91;:html :string&#93; &#91;:error-status :int&#93;&#93;}
    :on-error nil

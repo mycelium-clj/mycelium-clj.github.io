@@ -25,7 +25,7 @@ Each cell in the `:cells` map must have:
 ```clojure
 {:cell-name
  {:id       :namespace/cell-id      ;; cell registry ID
-  :doc      "What this cell does"   ;; optional
+  :doc      "What this cell does"   ;; required: describes purpose and semantics for LLMs
   :schema   {:input  [:map ...]     ;; Malli input schema
              :output [:map ...]     ;; or {:transition-label [:map ...], ...}
             }                       ;; or :inherit — see below
@@ -206,7 +206,7 @@ The `:prompt` string contains everything an LLM needs to implement the cell: sch
 - `:id` is present
 - `:cells` is present and non-empty
 - `:edges` is present (or `:pipeline` which expands to `:edges`)
-- Every cell has valid `:id`, `:schema` (with `:input` and `:output`, or `:inherit`), and `:on-error`
+- Every cell has valid `:id`, `:doc` (non-empty string), `:schema` (with `:input` and `:output`, or `:inherit`), and `:on-error`
 - `:schema :inherit` cells have a registered cell with a schema in the registry
 - `:on-error` targets exist in `:cells`
 - All edge targets point to valid cells, joins, or terminal states (`:end`, `:error`, `:halt`)
@@ -233,6 +233,7 @@ The `:prompt` string contains everything an LLM needs to implement the cell: sch
  :cells
  {:fetch-profile-by-id
   {:id       :user/fetch-profile-by-id
+   :doc      "Fetches user profile by ID from the URL path parameter"
    :schema   {:input  [:map [:http-request [:map [:path-params [:map [:id :string]]]]]]
               :output {:found     [:map [:profile map?]]
                        :not-found [:map [:error-type :keyword]
@@ -242,6 +243,7 @@ The `:prompt` string contains everything an LLM needs to implement the cell: sch
 
   :render-profile
   {:id       :ui/render-user-profile
+   :doc      "Renders the user profile page as HTML"
    :schema   {:input  [:map [:profile [:map [:id :string] [:name :string] [:email :string]]]]
               :output [:map [:html :string]]}
    :on-error :render-error
@@ -249,6 +251,7 @@ The `:prompt` string contains everything an LLM needs to implement the cell: sch
 
   :render-error
   {:id       :ui/render-error
+   :doc      "Renders an error page with status code"
    :schema   {:input  [:map]
               :output [:map [:html :string] [:error-status :int]]}
    :on-error nil

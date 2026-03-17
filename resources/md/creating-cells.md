@@ -13,7 +13,8 @@ Register cells via `cell/defcell`. The cell ID is specified once — no duplicat
   (:require [mycelium.cell :as cell]))
 
 (cell/defcell :auth/parse-request
-  {:input  [:map [:http-request [:map [:body map?]]]]
+  {:doc    "Extracts the auth token from the HTTP request body. Returns the token on success, or an error describing why the token is missing."
+   :input  [:map [:http-request [:map [:body map?]]]]
    :output {:success [:map [:auth-token :string]]
             :failure [:map [:error-type :keyword]
                            [:error-message :string]]}}
@@ -32,6 +33,7 @@ The raw multimethod approach requires specifying the ID twice:
 ```clojure
 (defmethod cell/cell-spec :auth/parse-request [_]
   {:id       :auth/parse-request
+   :doc      "Extracts the auth token from the HTTP request body. Returns the token on success, or an error describing why the token is missing."
    :handler  (fn [_resources data]
                (let [body (get-in data [:http-request :body])]
                  (if-let [token (get body "auth-token")]
@@ -50,11 +52,11 @@ The raw multimethod approach requires specifying the ID twice:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `:id` | yes | Keyword identifier, conventionally `namespace/name` (e.g. `:auth/parse-request`) |
+| `:doc` | yes | Non-empty string describing the cell's purpose and semantics — helps LLMs understand how the cell should be used |
 | `:handler` | yes | `(fn [resources data] -> data)` for sync, or `(fn [resources data callback error-callback])` for async |
 | `:schema` | yes | Map with `:input` (Malli schema) and `:output` (single schema or per-transition map) |
 | `:requires` | no | Vector of resource keys the handler needs (e.g. `[:db]`) |
 | `:async?` | no | Set to `true` for async handlers |
-| `:doc` | no | Documentation string |
 
 ## Handler Signature
 
@@ -122,7 +124,8 @@ The transition keys in the output map must match the dispatch labels defined in 
 ### Resource-dependent cell
 ```clojure
 (cell/defcell :user/fetch-profile
-  {:input    [:map [:user-id :string]]
+  {:doc      "Looks up a user profile by user-id from the database. Returns the profile on success, or a not-found error."
+   :input    [:map [:user-id :string]]
    :output   {:found     [:map [:profile [:map [:name :string] [:email :string]]]]
               :not-found [:map [:error-type :keyword] [:error-message :string]]}
    :requires [:db]}
@@ -136,7 +139,8 @@ The transition keys in the output map must match the dispatch labels defined in 
 ### Async cell (external API call)
 ```clojure
 (cell/defcell :api/fetch-data
-  {:input  [:map [:url :string]]
+  {:doc    "Fetches data from an external URL asynchronously. Returns the raw HTTP response."
+   :input  [:map [:url :string]]
    :output [:map [:response map?]]
    :async? true}
   (fn [_resources data callback error-callback]

@@ -21,6 +21,7 @@ A fragment is an EDN file declaring its own cells, edges, dispatches, entry poin
  :cells
  {:extract-session
   {:id       :auth/extract-cookie-session
+   :doc      "Extracts auth token from the HTTP cookie session"
    :schema   {:input  [:map [:http-request [:map]]]
               :output {:success [:map [:auth-token :string]]
                        :failure [:map [:error-type :keyword]
@@ -30,6 +31,7 @@ A fragment is an EDN file declaring its own cells, edges, dispatches, entry poin
 
   :validate-session
   {:id       :auth/validate-session
+   :doc      "Validates auth token against the session store"
    :schema   {:input  [:map [:auth-token :string]]
               :output {:authorized   [:map [:session-valid :boolean] [:user-id :string]]
                        :unauthorized [:map [:session-valid :boolean]
@@ -40,6 +42,7 @@ A fragment is an EDN file declaring its own cells, edges, dispatches, entry poin
 
   :fetch-profile
   {:id       :user/fetch-profile
+   :doc      "Fetches user profile by user-id from the database"
    :schema   {:input  [:map [:user-id :string] [:session-valid :boolean]]
               :output {:found     [:map [:profile map?]]
                        :not-found [:map [:error-type :keyword]

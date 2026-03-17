@@ -123,38 +123,41 @@
 ;; With propagation:    &#40;fn &#91;&#95; data&#93; {:tax &#40;&#42; &#40;:subtotal data&#41; 0.1&#41;}&#41;
 </code></pre><h2 id="cell&#95;registration">Cell Registration</h2><h3 id="defcell&#95;(recommended)">defcell (recommended)</h3><pre><code class="clojure">&#40;require '&#91;mycelium.cell :as cell&#93;&#41;
 
-;; Minimal — no schema
+;; Minimal — no schema, :doc is required
 &#40;cell/defcell :namespace/cell-id
+  {:doc &quot;Describe what this cell does and how it should be used&quot;}
   &#40;fn &#91;resources data&#93; {:result &quot;value&quot;}&#41;&#41;
 
 ;; With schema &#40;lite syntax — recommended&#41;
 &#40;cell/defcell :namespace/cell-id
-  {:input  {:key :type}
+  {:doc    &quot;Transforms input key into a result string&quot;
+   :input  {:key :type}
    :output {:result :string}}
   &#40;fn &#91;resources data&#93; {:result &quot;value&quot;}&#41;&#41;
 
 ;; With schema &#40;full Malli vector syntax&#41;
 &#40;cell/defcell :namespace/cell-id
-  {:input  &#91;:map &#91;:key :type&#93;&#93;
+  {:doc    &quot;Transforms input key into a result string&quot;
+   :input  &#91;:map &#91;:key :type&#93;&#93;
    :output &#91;:map &#91;:result :string&#93;&#93;}
   &#40;fn &#91;resources data&#93; {:result &quot;value&quot;}&#41;&#41;
 
 ;; With schema + options
 &#40;cell/defcell :namespace/cell-id
-  {:input    {:key :type}
+  {:doc      &quot;Describe what this cell does and how it should be used&quot;
+   :input    {:key :type}
    :output   {:result :string}
-   :doc      &quot;...&quot;
    :requires &#91;:db&#93;
    :async?   true}
   &#40;fn &#91;resources data callback error-callback&#93; ...&#41;&#41;
-</code></pre><p><code>defcell</code> eliminates ID duplication — the cell-id is specified once. Schema, <code>:doc</code>, <code>:requires</code>, and <code>:async?</code> are passed in the opts map. The handler function is always the last argument.</p><h3 id="defmethod&#95;(low-level)">defmethod (low-level)</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :namespace/cell-id &#91;&#95;&#93;
+</code></pre><p><code>defcell</code> eliminates ID duplication — the cell-id is specified once. The opts map <strong>must</strong> contain a <code>:doc</code> string describing the cell's purpose and semantics for LLM consumption. Schema, <code>:requires</code>, and <code>:async?</code> are also passed in the opts map. The handler function is always the last argument.</p><h3 id="defmethod&#95;(low-level)">defmethod (low-level)</h3><pre><code class="clojure">&#40;defmethod cell/cell-spec :namespace/cell-id &#91;&#95;&#93;
   {:id       :namespace/cell-id
+   :doc      &quot;Describe what this cell does and how it should be used&quot;
    :handler  &#40;fn &#91;resources data&#93; {:result &quot;value&quot;}&#41;
    :schema   {:input  &#91;:map &#91;:key :type&#93;&#93;
               :output &#91;:map &#91;:result :string&#93;&#93;}
    :requires &#91;:db&#93;
-   :async?   true
-   :doc      &quot;...&quot;}&#41;
+   :async?   true}&#41;
 </code></pre><h3 id="cell&#95;registry&#95;helpers">Cell Registry Helpers</h3><pre><code class="clojure">&#40;cell/list-cells&#41;                     ;; =&gt; &#40;:ns/a :ns/b ...&#41; — all registered IDs
 &#40;cell/get-cell :ns/id&#41;                ;; =&gt; spec map or nil
 &#40;cell/get-cell! :ns/id&#41;               ;; =&gt; spec map or throws
@@ -293,9 +296,9 @@
 &#40;def wf &#40;manifest/manifest-&gt;workflow m&#41;&#41;
 &#40;manifest/cell-brief m :cell-name&#41;  ;; LLM-friendly prompt
 </code></pre><h3 id="manifest&#95;cell&#95;fields">Manifest Cell Fields</h3><pre><code class="clojure">{:id       :namespace/name    ;; cell registry ID
+ :doc      &quot;...&quot;              ;; required — describes purpose and semantics for LLMs
  :schema   {:input  &#91;...&#93;     ;; Malli schema
             :output &#91;...&#93;}    ;; single or per-transition
- :doc      &quot;...&quot;              ;; optional description
  :requires &#91;:db&#93;              ;; optional resource dependencies
  :on-error :cell-name}        ;; or nil — required in strict mode &#40;default&#41;
 </code></pre><p>Use <code>:schema :inherit</code> to resolve schema from the cell registry (avoids duplicating schemas in manifest):</p><pre><code class="clojure">{:id :user/fetch-profile
