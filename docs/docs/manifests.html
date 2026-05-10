@@ -157,9 +157,10 @@
   {:id       :user/fetch-profile-by-id
    :doc      &quot;Fetches user profile by ID from the URL path parameter&quot;
    :schema   {:input  &#91;:map &#91;:http-request &#91;:map &#91;:path-params &#91;:map &#91;:id :string&#93;&#93;&#93;&#93;&#93;&#93;
-              :output {:found     &#91;:map &#91;:profile map?&#93;&#93;
-                       :not-found &#91;:map &#91;:error-type :keyword&#93;
-                                        &#91;:error-message :string&#93;&#93;}}
+              :output &#91;:per-transition
+                       {:found     &#91;:map &#91;:profile map?&#93;&#93;
+                        :not-found &#91;:map &#91;:error-type :keyword&#93;
+                                         &#91;:error-message :string&#93;&#93;}&#93;}
    :on-error :render-error
    :requires &#91;:db&#93;}
 

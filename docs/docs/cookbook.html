@@ -82,9 +82,10 @@
 
    :dispatches {:start &#91;&#91;:clean      &#40;fn &#91;d&#93; &#40;= :ok &#40;:fraud-status d&#41;&#41;&#41;&#93;
                         &#91;:suspicious &#40;fn &#91;d&#93; &#40;= :flagged &#40;:fraud-status d&#41;&#41;&#41;&#93;&#93;}}&#41;
-</code></pre><p>The cell handler sets a key (<code>:fraud-status</code>). Dispatch predicates examine that key and pick the edge. Handlers compute data; dispatches decide the route.</p><p>For per-transition output schemas, use a map instead of a single schema:</p><pre><code class="clojure">:schema {:input  &#91;:map &#91;:total :double&#93;&#93;
-         :output {:clean      &#91;:map &#91;:fraud-status &#91;:= :ok&#93;&#93;&#93;
-                  :suspicious &#91;:map &#91;:fraud-status &#91;:= :flagged&#93;&#93;&#93;}}
+</code></pre><p>The cell handler sets a key (<code>:fraud-status</code>). Dispatch predicates examine that key and pick the edge. Handlers compute data; dispatches decide the route.</p><p>For per-transition output schemas, wrap the schema map in <code>&#91;:per-transition ...&#93;</code>:</p><pre><code class="clojure">:schema {:input  &#91;:map &#91;:total :double&#93;&#93;
+         :output &#91;:per-transition
+                  {:clean      &#91;:map &#91;:fraud-status &#91;:= :ok&#93;&#93;&#93;
+                   :suspicious &#91;:map &#91;:fraud-status &#91;:= :flagged&#93;&#93;&#93;}&#93;}
 </code></pre><h2></h2><h2 id="add&#95;a&#95;catch-all&#95;fallback">Add a Catch-All Fallback</h2><p><strong>Problem:</strong> You want a safety net when no dispatch predicate matches.</p><pre><code class="clojure">{:edges {:start {:success :process, :default :error-handler}
          :process :end, :error-handler :end}
  :dispatches {:start &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;&#93;}}

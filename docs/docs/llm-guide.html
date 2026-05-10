@@ -129,8 +129,9 @@
                        &#91;:fail &#40;fn &#91;d&#93; &#40;not &#40;:valid d&#41;&#41;&#41;&#93;&#93;}}
 </code></pre><p>Handlers compute data. Dispatch predicates choose the route. Separate concerns.</p><h3 id="per-transition&#95;output&#95;schema">Per-Transition Output Schema</h3><p>When a cell branches, declare output per edge:</p><pre><code class="clojure">&#40;cell/defcell :app/check
   {:input  &#91;:map &#91;:value :int&#93;&#93;
-   :output {:pass &#91;:map &#91;:status &#91;:= :ok&#93;&#93;&#93;
-            :fail &#91;:map &#91;:status &#91;:= :error&#93;&#93; &#91;:reason :string&#93;&#93;}}
+   :output &#91;:per-transition
+            {:pass &#91;:map &#91;:status &#91;:= :ok&#93;&#93;&#93;
+             :fail &#91;:map &#91;:status &#91;:= :error&#93;&#93; &#91;:reason :string&#93;&#93;}&#93;}
   &#40;fn &#91;&#95; data&#93;
     &#40;if &#40;pos? &#40;:value data&#41;&#41;
       {:status :ok}

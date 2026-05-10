@@ -298,7 +298,7 @@
 </code></pre><h3 id="manifest&#95;cell&#95;fields">Manifest Cell Fields</h3><pre><code class="clojure">{:id       :namespace/name    ;; cell registry ID
  :doc      &quot;...&quot;              ;; required — describes purpose and semantics for LLMs
  :schema   {:input  &#91;...&#93;     ;; Malli schema
-            :output &#91;...&#93;}    ;; single or per-transition
+            :output &#91;...&#93;}    ;; single schema, or &#91;:per-transition {:label1 schema, :label2 schema}&#93;
  :requires &#91;:db&#93;              ;; optional resource dependencies
  :on-error :cell-name}        ;; or nil — required in strict mode &#40;default&#41;
 </code></pre><p>Use <code>:schema :inherit</code> to resolve schema from the cell registry (avoids duplicating schemas in manifest):</p><pre><code class="clojure">{:id :user/fetch-profile
@@ -341,9 +341,10 @@
 </code></pre><p>Use full Malli syntax when you need: enums (<code>&#91;:enum :a :b&#93;</code>), unions (<code>&#91;:or :string :int&#93;</code>), optional fields, or other advanced features. Both syntaxes can be mixed freely.</p><h2 id="output&#95;schema&#95;formats">Output Schema Formats</h2><pre><code class="clojure">;; Single &#40;all transitions&#41;
 :output &#91;:map &#91;:result :int&#93;&#93;
 
-;; Per-transition
-:output {:success &#91;:map &#91;:data :string&#93;&#93;
-         :failure &#91;:map &#91;:error :string&#93;&#93;}
+;; Per-transition &#40;wrapper is required — a bare map is always lite-map syntax&#41;
+:output &#91;:per-transition
+         {:success &#91;:map &#91;:data :string&#93;&#93;
+          :failure &#91;:map &#91;:error :string&#93;&#93;}&#93;
 </code></pre><p>Per-transition schemas are validated based on which dispatch matched. The schema chain validator tracks available keys independently per path.</p><h2 id="constraints">Constraints</h2><p>Declare compile-time path invariants that are checked against all enumerated paths:</p><pre><code class="clojure">{:constraints &#91;{:type :must-follow,      :if :flag-missing, :then :apply-tags}
                {:type :must-precede,     :cell :validate,   :before :process}
                {:type :never-together,   :cells &#91;:manual-review :auto-approve&#93;}

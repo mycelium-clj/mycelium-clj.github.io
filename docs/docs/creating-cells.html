@@ -68,9 +68,10 @@
 &#40;cell/defcell :auth/parse-request
   {:doc    &quot;Extracts the auth token from the HTTP request body. Returns the token on success, or an error describing why the token is missing.&quot;
    :input  &#91;:map &#91;:http-request &#91;:map &#91;:body map?&#93;&#93;&#93;&#93;
-   :output {:success &#91;:map &#91;:auth-token :string&#93;&#93;
-            :failure &#91;:map &#91;:error-type :keyword&#93;
-                           &#91;:error-message :string&#93;&#93;}}
+   :output &#91;:per-transition
+            {:success &#91;:map &#91;:auth-token :string&#93;&#93;
+             :failure &#91;:map &#91;:error-type :keyword&#93;
+                            &#91;:error-message :string&#93;&#93;}&#93;}
   &#40;fn &#91;&#95;resources data&#93;
     &#40;let &#91;body &#40;get-in data &#91;:http-request :body&#93;&#41;&#93;
       &#40;if-let &#91;token &#40;get body &quot;auth-token&quot;&#41;&#93;
@@ -87,16 +88,18 @@
                    {:error-type :missing-token
                     :error-message &quot;No auth token provided&quot;}&#41;&#41;&#41;
    :schema   {:input  &#91;:map &#91;:http-request &#91;:map &#91;:body map?&#93;&#93;&#93;&#93;
-              :output {:success &#91;:map &#91;:auth-token :string&#93;&#93;
-                       :failure &#91;:map &#91;:error-type :keyword&#93;
-                                      &#91;:error-message :string&#93;&#93;}}
+              :output &#91;:per-transition
+                       {:success &#91;:map &#91;:auth-token :string&#93;&#93;
+                        :failure &#91;:map &#91;:error-type :keyword&#93;
+                                       &#91;:error-message :string&#93;&#93;}&#93;}
    :requires &#91;&#93;}&#41;
-</code></pre><h2 id="cell&#95;spec&#95;fields">Cell Spec Fields</h2><table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><code>:id</code></td><td>yes</td><td>Keyword identifier, conventionally <code>namespace/name</code> (e.g. <code>:auth/parse-request</code>)</td></tr><tr><td><code>:doc</code></td><td>yes</td><td>Non-empty string describing the cell's purpose and semantics — helps LLMs understand how the cell should be used</td></tr><tr><td><code>:handler</code></td><td>yes</td><td><code>&#40;fn &#91;resources data&#93; -&gt; data&#41;</code> for sync, or <code>&#40;fn &#91;resources data callback error-callback&#93;&#41;</code> for async</td></tr><tr><td><code>:schema</code></td><td>yes</td><td>Map with <code>:input</code> (Malli schema) and <code>:output</code> (single schema or per-transition map)</td></tr><tr><td><code>:requires</code></td><td>no</td><td>Vector of resource keys the handler needs (e.g. <code>&#91;:db&#93;</code>)</td></tr><tr><td><code>:async?</code></td><td>no</td><td>Set to <code>true</code> for async handlers</td></tr></tbody></table><h2 id="handler&#95;signature">Handler Signature</h2><p><strong>Sync</strong> (default):<pre><code class="clojure">&#40;fn &#91;resources data&#93; -&gt; data&#41;
+</code></pre><h2 id="cell&#95;spec&#95;fields">Cell Spec Fields</h2><table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><code>:id</code></td><td>yes</td><td>Keyword identifier, conventionally <code>namespace/name</code> (e.g. <code>:auth/parse-request</code>)</td></tr><tr><td><code>:doc</code></td><td>yes</td><td>Non-empty string describing the cell's purpose and semantics — helps LLMs understand how the cell should be used</td></tr><tr><td><code>:handler</code></td><td>yes</td><td><code>&#40;fn &#91;resources data&#93; -&gt; data&#41;</code> for sync, or <code>&#40;fn &#91;resources data callback error-callback&#93;&#41;</code> for async</td></tr><tr><td><code>:schema</code></td><td>yes</td><td>Map with <code>:input</code> (Malli schema) and <code>:output</code> (single schema or <code>&#91;:per-transition {...}&#93;</code> map)</td></tr><tr><td><code>:requires</code></td><td>no</td><td>Vector of resource keys the handler needs (e.g. <code>&#91;:db&#93;</code>)</td></tr><tr><td><code>:async?</code></td><td>no</td><td>Set to <code>true</code> for async handlers</td></tr></tbody></table><h2 id="handler&#95;signature">Handler Signature</h2><p><strong>Sync</strong> (default):<pre><code class="clojure">&#40;fn &#91;resources data&#93; -&gt; data&#41;
 </code></pre></p><ul><li><code>resources</code>: map of injected dependencies (db, http-client, etc.)</li><li><code>data</code>: accumulating data map — all keys from prior cells are present</li><li>Returns: the data map with new keys assoc'd</li></ul><p><strong>Async</strong> (<code>:async? true</code>):<pre><code class="clojure">&#40;fn &#91;resources data callback error-callback&#93;&#41;
 </code></pre></p><ul><li><code>callback</code>: call with <code>&#40;callback updated-data&#41;</code> on success</li><li><code>error-callback</code>: call with <code>&#40;error-callback exception&#41;</code> on failure</li></ul><h2 id="output&#95;schema&#95;formats">Output Schema Formats</h2><p><strong>Single schema</strong> — all transitions must satisfy it:<pre><code class="clojure">:output &#91;:map &#91;:result :int&#93;&#93;
-</code></pre></p><p><strong>Per-transition schemas</strong> — each dispatch transition has its own contract:<pre><code class="clojure">:output {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
-         :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}
-</code></pre></p><p>The transition keys in the output map must match the dispatch labels defined in the workflow's <code>:dispatches</code> for this cell.</p><h2 id="rules">Rules</h2><ol><li>Return only new/changed keys — key propagation (on by default) merges input automatically</li><li>Output must satisfy the declared <code>:output</code> schema for the matched transition</li><li>Never import or call other cells — cells are isolated by design</li><li>Use only resources passed via the first argument — never acquire external dependencies directly</li><li>Cell handlers must return a map (not nil) — return <code>{}</code> if the cell adds nothing</li></ol><h2 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h2><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
+</code></pre></p><p><strong>Per-transition schemas</strong> — each dispatch transition has its own contract. Wrap the map in <code>&#91;:per-transition ...&#93;</code>:<pre><code class="clojure">:output &#91;:per-transition
+         {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
+          :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}&#93;
+</code></pre></p><p>The transition keys must match the dispatch labels defined in the workflow's <code>:dispatches</code> for this cell. A bare map (without the <code>&#91;:per-transition ...&#93;</code> wrapper) is always interpreted as lite-map syntax, never per-transition.</p><h2 id="rules">Rules</h2><ol><li>Return only new/changed keys — key propagation (on by default) merges input automatically</li><li>Output must satisfy the declared <code>:output</code> schema for the matched transition</li><li>Never import or call other cells — cells are isolated by design</li><li>Use only resources passed via the first argument — never acquire external dependencies directly</li><li>Cell handlers must return a map (not nil) — return <code>{}</code> if the cell adds nothing</li></ol><h2 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h2><pre><code class="clojure">&#40;require '&#91;mycelium.dev :as dev&#93;&#41;
 
 ;; Basic test
 &#40;dev/test-cell :auth/parse-request
@@ -115,8 +118,9 @@
 </code></pre><h2 id="common&#95;patterns">Common Patterns</h2><h3 id="resource-dependent&#95;cell">Resource-dependent cell</h3><pre><code class="clojure">&#40;cell/defcell :user/fetch-profile
   {:doc      &quot;Looks up a user profile by user-id from the database. Returns the profile on success, or a not-found error.&quot;
    :input    &#91;:map &#91;:user-id :string&#93;&#93;
-   :output   {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
-              :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}
+   :output   &#91;:per-transition
+              {:found     &#91;:map &#91;:profile &#91;:map &#91;:name :string&#93; &#91;:email :string&#93;&#93;&#93;&#93;
+               :not-found &#91;:map &#91;:error-type :keyword&#93; &#91;:error-message :string&#93;&#93;}&#93;
    :requires &#91;:db&#93;}
   &#40;fn &#91;{:keys &#91;db&#93;} data&#93;
     &#40;if-let &#91;profile &#40;db/get-user db &#40;:user-id data&#41;&#41;&#93;

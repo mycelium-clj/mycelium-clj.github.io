@@ -74,9 +74,10 @@
   {:id       :auth/extract-cookie-session
    :doc      &quot;Extracts auth token from the HTTP cookie session&quot;
    :schema   {:input  &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;
-              :output {:success &#91;:map &#91;:auth-token :string&#93;&#93;
-                       :failure &#91;:map &#91;:error-type :keyword&#93;
-                                      &#91;:error-message :string&#93;&#93;}}
+              :output &#91;:per-transition
+                       {:success &#91;:map &#91;:auth-token :string&#93;&#93;
+                        :failure &#91;:map &#91;:error-type :keyword&#93;
+                                       &#91;:error-message :string&#93;&#93;}&#93;}
    :on-error :&#95;exit/failure     ;; resolves to host's :failure exit target
    :requires &#91;&#93;}
 
@@ -84,10 +85,11 @@
   {:id       :auth/validate-session
    :doc      &quot;Validates auth token against the session store&quot;
    :schema   {:input  &#91;:map &#91;:auth-token :string&#93;&#93;
-              :output {:authorized   &#91;:map &#91;:session-valid :boolean&#93; &#91;:user-id :string&#93;&#93;
-                       :unauthorized &#91;:map &#91;:session-valid :boolean&#93;
-                                           &#91;:error-type :keyword&#93;
-                                           &#91;:error-message :string&#93;&#93;}}
+              :output &#91;:per-transition
+                       {:authorized   &#91;:map &#91;:session-valid :boolean&#93; &#91;:user-id :string&#93;&#93;
+                        :unauthorized &#91;:map &#91;:session-valid :boolean&#93;
+                                            &#91;:error-type :keyword&#93;
+                                            &#91;:error-message :string&#93;&#93;}&#93;}
    :on-error :&#95;exit/failure
    :requires &#91;:db&#93;}
 
@@ -95,9 +97,10 @@
   {:id       :user/fetch-profile
    :doc      &quot;Fetches user profile by user-id from the database&quot;
    :schema   {:input  &#91;:map &#91;:user-id :string&#93; &#91;:session-valid :boolean&#93;&#93;
-              :output {:found     &#91;:map &#91;:profile map?&#93;&#93;
-                       :not-found &#91;:map &#91;:error-type :keyword&#93;
-                                        &#91;:error-message :string&#93;&#93;}}
+              :output &#91;:per-transition
+                       {:found     &#91;:map &#91;:profile map?&#93;&#93;
+                        :not-found &#91;:map &#91;:error-type :keyword&#93;
+                                         &#91;:error-message :string&#93;&#93;}&#93;}
    :on-error :&#95;exit/failure
    :requires &#91;:db&#93;}}
 

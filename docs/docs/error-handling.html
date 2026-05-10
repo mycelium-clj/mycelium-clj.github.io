@@ -283,10 +283,11 @@
 :dispatches {:payment &#91;&#91;:approved &#40;fn &#91;d&#93; &#40;= :approved &#40;:payment-status d&#41;&#41;&#41;&#93;
                        &#91;:declined &#40;fn &#91;d&#93; &#40;= :declined &#40;:payment-status d&#41;&#41;&#41;&#93;&#93;}
 </code></pre><p>Reserve error groups for truly unexpected failures (IO errors, null pointers, connection drops).</p><h3 id="errors&#95;as&#95;routing&#95;decisions">Errors as Routing Decisions</h3><p>Use per-transition output schemas to validate both success and failure paths:</p><pre><code class="clojure">:schema {:input  &#91;:map &#91;:card :string&#93; &#91;:total :double&#93;&#93;
-         :output {:approved &#91;:map &#91;:payment-status &#91;:= :approved&#93;&#93;
-                              &#91;:transaction-id :string&#93;&#93;
-                  :declined &#91;:map &#91;:payment-status &#91;:= :declined&#93;&#93;
-                              &#91;:decline-reason :string&#93;&#93;}}
+         :output &#91;:per-transition
+                  {:approved &#91;:map &#91;:payment-status &#91;:= :approved&#93;&#93;
+                                   &#91;:transaction-id :string&#93;&#93;
+                   :declined &#91;:map &#91;:payment-status &#91;:= :declined&#93;&#93;
+                                   &#91;:decline-reason :string&#93;&#93;}&#93;}
 </code></pre><p>Each branch gets its own schema validation — a declined payment must include <code>:decline-reason</code>.</p><h3 id="layered&#95;error&#95;strategy">Layered Error Strategy</h3><p>Combine multiple error mechanisms for defense in depth:</p><pre><code class="clojure">{:cells {:start     :api/call
          :process   :app/process
          :fallback  :app/use-cached

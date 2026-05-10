@@ -15,9 +15,10 @@ Register cells via `cell/defcell`. The cell ID is specified once — no duplicat
 (cell/defcell :auth/parse-request
   {:doc    "Extracts the auth token from the HTTP request body. Returns the token on success, or an error describing why the token is missing."
    :input  [:map [:http-request [:map [:body map?]]]]
-   :output {:success [:map [:auth-token :string]]
-            :failure [:map [:error-type :keyword]
-                           [:error-message :string]]}}
+   :output [:per-transition
+            {:success [:map [:auth-token :string]]
+             :failure [:map [:error-type :keyword]
+                            [:error-message :string]]}]}
   (fn [_resources data]
     (let [body (get-in data [:http-request :body])]
       (if-let [token (get body "auth-token")]
@@ -41,9 +42,10 @@ The raw multimethod approach requires specifying the ID twice:
                    {:error-type :missing-token
                     :error-message "No auth token provided"})))
    :schema   {:input  [:map [:http-request [:map [:body map?]]]]
-              :output {:success [:map [:auth-token :string]]
-                       :failure [:map [:error-type :keyword]
-                                      [:error-message :string]]}}
+              :output [:per-transition
+                       {:success [:map [:auth-token :string]]
+                        :failure [:map [:error-type :keyword]
+                                       [:error-message :string]]}]}
    :requires []})
 ```
 
@@ -54,7 +56,7 @@ The raw multimethod approach requires specifying the ID twice:
 | `:id` | yes | Keyword identifier, conventionally `namespace/name` (e.g. `:auth/parse-request`) |
 | `:doc` | yes | Non-empty string describing the cell's purpose and semantics — helps LLMs understand how the cell should be used |
 | `:handler` | yes | `(fn [resources data] -> data)` for sync, or `(fn [resources data callback error-callback])` for async |
-| `:schema` | yes | Map with `:input` (Malli schema) and `:output` (single schema or per-transition map) |
+| `:schema` | yes | Map with `:input` (Malli schema) and `:output` (single schema or `[:per-transition {...}]` map) |
 | `:requires` | no | Vector of resource keys the handler needs (e.g. `[:db]`) |
 | `:async?` | no | Set to `true` for async handlers |
 
@@ -82,13 +84,14 @@ The raw multimethod approach requires specifying the ID twice:
 :output [:map [:result :int]]
 ```
 
-**Per-transition schemas** — each dispatch transition has its own contract:
+**Per-transition schemas** — each dispatch transition has its own contract. Wrap the map in `[:per-transition ...]`:
 ```clojure
-:output {:found     [:map [:profile [:map [:name :string] [:email :string]]]]
-         :not-found [:map [:error-type :keyword] [:error-message :string]]}
+:output [:per-transition
+         {:found     [:map [:profile [:map [:name :string] [:email :string]]]]
+          :not-found [:map [:error-type :keyword] [:error-message :string]]}]
 ```
 
-The transition keys in the output map must match the dispatch labels defined in the workflow's `:dispatches` for this cell.
+The transition keys must match the dispatch labels defined in the workflow's `:dispatches` for this cell. A bare map (without the `[:per-transition ...]` wrapper) is always interpreted as lite-map syntax, never per-transition.
 
 ## Rules
 
@@ -126,8 +129,9 @@ The transition keys in the output map must match the dispatch labels defined in 
 (cell/defcell :user/fetch-profile
   {:doc      "Looks up a user profile by user-id from the database. Returns the profile on success, or a not-found error."
    :input    [:map [:user-id :string]]
-   :output   {:found     [:map [:profile [:map [:name :string] [:email :string]]]]
-              :not-found [:map [:error-type :keyword] [:error-message :string]]}
+   :output   [:per-transition
+              {:found     [:map [:profile [:map [:name :string] [:email :string]]]]
+               :not-found [:map [:error-type :keyword] [:error-message :string]]}]
    :requires [:db]}
   (fn [{:keys [db]} data]
     (if-let [profile (db/get-user db (:user-id data))]

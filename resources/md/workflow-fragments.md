@@ -23,9 +23,10 @@ A fragment is an EDN file declaring its own cells, edges, dispatches, entry poin
   {:id       :auth/extract-cookie-session
    :doc      "Extracts auth token from the HTTP cookie session"
    :schema   {:input  [:map [:http-request [:map]]]
-              :output {:success [:map [:auth-token :string]]
-                       :failure [:map [:error-type :keyword]
-                                      [:error-message :string]]}}
+              :output [:per-transition
+                       {:success [:map [:auth-token :string]]
+                        :failure [:map [:error-type :keyword]
+                                       [:error-message :string]]}]}
    :on-error :_exit/failure     ;; resolves to host's :failure exit target
    :requires []}
 
@@ -33,10 +34,11 @@ A fragment is an EDN file declaring its own cells, edges, dispatches, entry poin
   {:id       :auth/validate-session
    :doc      "Validates auth token against the session store"
    :schema   {:input  [:map [:auth-token :string]]
-              :output {:authorized   [:map [:session-valid :boolean] [:user-id :string]]
-                       :unauthorized [:map [:session-valid :boolean]
-                                           [:error-type :keyword]
-                                           [:error-message :string]]}}
+              :output [:per-transition
+                       {:authorized   [:map [:session-valid :boolean] [:user-id :string]]
+                        :unauthorized [:map [:session-valid :boolean]
+                                            [:error-type :keyword]
+                                            [:error-message :string]]}]}
    :on-error :_exit/failure
    :requires [:db]}
 
@@ -44,9 +46,10 @@ A fragment is an EDN file declaring its own cells, edges, dispatches, entry poin
   {:id       :user/fetch-profile
    :doc      "Fetches user profile by user-id from the database"
    :schema   {:input  [:map [:user-id :string] [:session-valid :boolean]]
-              :output {:found     [:map [:profile map?]]
-                       :not-found [:map [:error-type :keyword]
-                                        [:error-message :string]]}}
+              :output [:per-transition
+                       {:found     [:map [:profile map?]]
+                        :not-found [:map [:error-type :keyword]
+                                         [:error-message :string]]}]}
    :on-error :_exit/failure
    :requires [:db]}}
 
