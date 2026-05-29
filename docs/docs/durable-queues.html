@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="mycelium, mycelium-clj, clojure, framework, workflows, cells">
+    <meta name="description" content="Mycelium - Schema-enforced, workflow-driven web framework for Clojure">
+    <meta name="canonical" content="https://mycelium-clj.github.io">
+    <title>Mycelium Framework</title>
+    <link rel="icon" href="/img/mycelium.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/img/mycelium.png" type="image/x-icon">
+    <link href="/css/highlight.css" rel="stylesheet" type="text/css" />
+    <link href="/css/codestyle.css" rel="stylesheet" type="text/css" />
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="wrapper">
+        <div class="column-wrapper" style="padding-top:0;padding-bottom:0;">
+          <div class="row">
+            <div id="logo">
+              <h1>
+                <a href="/">
+                  <img src="/img/mycelium.png" alt="Mycelium">
+                  Mycelium
+                </a>
+              </h1>
+            </div>
+            <nav>
+              <ul>
+                <li >
+                  <a href="/">Home</a>
+                </li>
+                <li  class="selected">
+                  <a href="/docs/guestbook.html">
+                    <span class="show-on-mobile">Docs</span>
+                    <span class="hide-on-mobile">Documentation</span>
+                  </a>
+                </li>
+                <li >
+                  <a href="/contribute.html">
+                    <span class="hide-on-mobile">Get Involved</span>
+                    <span class="show-on-mobile">Contrib</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          
+          
+        </div>
+      </div>
+    </header>
+    <div class="wrapper">
+      
+<div class="row">
+  <div class="column column-75">
+    <div class="column-wrapper">
+      <h1>Durable Queues</h1>
+      
+      <h2>Contents</h2>
+      <ol class="contents"><li><a href="#durable_queues">Durable Queues</a></li><li><a href="#concepts">Concepts</a><ol><li><a href="#task_lifecycle">Task lifecycle</a></li><li><a href="#in-memory_(default)">In-memory (default)</a></li><li><a href="#postgres-backed_(mycelium-absurd)">Postgres-backed (mycelium-absurd)</a></li><li><a href="#halt/resume_with_stores">Halt/resume with stores</a></li></ol></li><li><a href="#configuration">Configuration</a><ol><li><a href="#queue_options">Queue options</a></li><li><a href="#worker_options">Worker options</a></li></ol></li><li><a href="#protocol">Protocol</a></li><li><a href="#long-running_workflows">Long-running workflows</a></li><li><a href="#dead-letter_inspection">Dead-letter inspection</a></li><li><a href="#custom_adapters">Custom adapters</a><ol><li><a href="#relationship_to_workflowstore">Relationship to WorkflowStore</a></li></ol></li></ol>
+      
+      <div id="content">
+        <h1 id="durable&#95;queues">Durable Queues</h1><p>Mycelium includes a queue abstraction for asynchronous workflow execution with lease-based claims, retries, heartbeats, and dead-letter visibility. The default implementation is in-memory (zero-config), and a Postgres-backed adapter is available via <a href='https://github.com/mycelium-clj/mycelium-absurd'>mycelium-absurd</a>.</p><h2 id="concepts">Concepts</h2><h3 id="task&#95;lifecycle">Task lifecycle</h3><pre><code>enqueue → claim → execute → complete
+                  ↘ fail → retry &#40;with backoff&#41; → claim → ...
+                        ↘ exhausted → dead-letter
+</code></pre><ul><li><strong>Enqueue</strong>: submit a workflow for async execution. Returns a task-id.  Optionally schedule for a future time with <code>:run-at</code>.</li><li><strong>Claim</strong>: a worker atomically picks up the next available task.  Only one worker can claim a task at a time (lease-based).</li><li><strong>Execute</strong>: the worker runs the workflow via <code>run-compiled</code>.</li><li><strong>Complete</strong>: on success, the task is removed from the queue.</li><li><strong>Fail</strong>: on error, the task is re-queued with exponential backoff  (1s, 2s, 4s, ... capped at 60s) if attempts remain. When max attempts  are exhausted, the task is dead-lettered.</li><li><strong>Heartbeat</strong>: long-running tasks can extend their lease to prevent  being reclaimed by another worker.</li></ul><h3 id="in-memory&#95;(default)">In-memory (default)</h3><pre><code class="clojure">&#40;require '&#91;mycelium.core :as myc&#93;
+         '&#91;mycelium.queue :as q&#93;&#41;
+
+;; Create an in-memory queue
+&#40;def queue &#40;q/memory-queue&#41;&#41;
+
+;; Compile your workflow
+&#40;def compiled &#40;myc/pre-compile workflow-def&#41;&#41;
+
+;; Enqueue a task
+&#40;def task-id &#40;myc/enqueue-workflow queue :my-wf compiled {:input &quot;data&quot;}&#41;&#41;
+
+;; Start a worker
+&#40;def worker &#40;myc/start-worker queue {:my-wf compiled} resources
+              {:poll-ms 500}&#41;&#41;
+
+;; Graceful shutdown
+&#40;future-cancel worker&#41;
+</code></pre><p>In-memory queues are suitable for development, testing, and single-process deployments. All state is lost on process restart.</p><h3 id="postgres-backed&#95;(mycelium-absurd)">Postgres-backed (mycelium-absurd)</h3><p><a href='https://github.com/mycelium-clj/mycelium-absurd'>mycelium-absurd</a> implements the <code>WorkQueue</code> protocol using <a href='https://github.com/earendil-works/absurd'>Absurd</a>'s Postgres stored procedures. Tasks survive restarts, and workers can be distributed across machines.</p><pre><code class="clojure">&#40;require '&#91;mycelium-absurd.core :refer &#91;absurd-queue&#93;&#93;
+         '&#91;mycelium.core :as myc&#93;&#41;
+
+;; Create a Postgres-backed queue &#40;absurd.sql must be applied first&#41;
+&#40;def queue &#40;absurd-queue hikari-datasource &quot;my-workflows&quot;&#41;&#41;
+
+;; Use identically to the in-memory queue
+&#40;def task-id &#40;myc/enqueue-workflow queue :my-wf compiled {:input &quot;data&quot;}&#41;&#41;
+&#40;def worker &#40;myc/start-worker queue {:my-wf compiled} resources {:poll-ms 500}&#41;&#41;
+</code></pre><h3 id="halt/resume&#95;with&#95;stores">Halt/resume with stores</h3><p>Workflows can halt (e.g., for human approval) and resume later. When using <code>start-worker-with-store</code>, halted state is persisted automatically:</p><pre><code class="clojure">&#40;require '&#91;mycelium.store :as store&#93;&#41;
+
+;; Memory store &#40;development&#41;
+&#40;def store &#40;store/memory-store&#41;&#41;
+
+;; Start worker with halt/resume support
+&#40;def worker
+  &#40;store/start-worker-with-store queue workflows resources store
+    {:heartbeat-ms 60000}&#41;&#41;
+
+;; When a workflow halts, the worker persists state and completes the task.
+;; The session-id = &#40;str task-id&#41;, so the enqueuer already has it.
+
+;; To resume:
+&#40;store/resume-with-store compiled resources session-id store&#41;
+</code></pre><p>For Postgres-backed stores, implement the <code>WorkflowStore</code> protocol with your database of choice. The <a href='https://github.com/mycelium-clj/mycelium-absurd'>mycelium-absurd</a> library includes Absurd-backed queue support; combine it with a database-backed store for fully durable halt/resume.</p><h2 id="configuration">Configuration</h2><h3 id="queue&#95;options">Queue options</h3><pre><code class="clojure">;; In-memory queue with custom settings
+&#40;q/memory-queue
+  {:claim-timeout-ms   300000   ;; 5 min lease &#40;default&#41;
+   :max-attempts       3        ;; 3 retries before dead-letter &#40;default: 1&#41;
+   :max-dead-letters   10000}&#41;  ;; cap on retained dead-letter entries &#40;default: 10000&#41;
+</code></pre><h3 id="worker&#95;options">Worker options</h3><pre><code class="clojure">&#40;myc/start-worker queue workflows resources
+  {:worker-id     &quot;my-worker&quot;   ;; auto-generated if omitted
+   :poll-ms       1000          ;; sleep when queue empty &#40;default: 1000&#41;
+   :heartbeat-ms  60000}&#41;       ;; heartbeat interval for long-running tasks
+</code></pre><h2 id="protocol">Protocol</h2><p>The <code>WorkQueue</code> protocol (defined in <code>mycelium.queue</code>) has 8 operations:</p><table><thead><tr><th>Operation</th><th>Purpose</th></tr></thead><tbody><tr><td><code>enqueue!</code></td><td>Submit a workflow run (supports <code>:run-at</code>, <code>:max-attempts</code>)</td></tr><tr><td><code>claim!</code></td><td>Atomically claim next available task with lease</td></tr><tr><td><code>complete!</code></td><td>Mark task completed (fenced by worker-id + lease)</td></tr><tr><td><code>fail!</code></td><td>Mark task failed, re-queue with backoff if attempts remain</td></tr><tr><td><code>heartbeat!</code></td><td>Extend claim lease (fenced by worker-id + lease)</td></tr><tr><td><code>claimed?</code></td><td>Check if worker still holds a valid claim</td></tr><tr><td><code>queue-depth</code></td><td>Count pending + claimed tasks (for monitoring)</td></tr><tr><td><code>dead-lettered</code></td><td>Inspect tasks that exhausted all retries</td></tr></tbody></table><p>Custom implementations must implement all 8 methods. See the <a href='https://github.com/mycelium-clj/mycelium/blob/main/src/mycelium/queue.clj'>memory-queue</a> source for a reference implementation.</p><h2 id="long-running&#95;workflows">Long-running workflows</h2><p>The default claim lease is 5 minutes. Workflows that may run longer must:</p><ol><li>Set <code>:heartbeat-ms</code> on the worker (e.g., to 60000 for 1-minute heartbeats)</li><li>Set <code>:max-attempts</code> > 1 to survive occasional timeouts</li><li>Ensure cell handlers are idempotent — expired leases can cause   concurrent re-execution even if the original run completed</li></ol><h2 id="dead-letter&#95;inspection">Dead-letter inspection</h2><pre><code class="clojure">;; View tasks that exhausted all retries
+&#40;q/dead-lettered queue&#41;
+;; =&gt; &#91;{:task-id #uuid &quot;...&quot;
+;;      :workflow-name :my-wf
+;;      :data {:input &quot;data&quot;}
+;;      :error #error{...}
+;;      :failed-at 1699123456789}
+;;     ...&#93;
+</code></pre><h2 id="custom&#95;adapters">Custom adapters</h2><p>Implement <code>mycelium.queue/WorkQueue</code> for any backend (Redis, SQS, Kafka, etc.):</p><pre><code class="clojure">&#40;require '&#91;mycelium.queue :as mq&#93;&#41;
+
+&#40;defn my-redis-queue &#91;conn&#93;
+  &#40;reify mq/WorkQueue
+    &#40;enqueue! &#91;&#95; workflow-name data&#93; ...&#41;
+    &#40;enqueue! &#91;&#95; workflow-name data opts&#93; ...&#41;
+    &#40;claim! &#91;&#95; worker-id&#93; ...&#41;
+    &#40;complete! &#91;&#95; task-id worker-id result&#93; ...&#41;
+    &#40;fail! &#91;&#95; task-id worker-id error&#93; ...&#41;
+    &#40;heartbeat! &#91;&#95; task-id worker-id&#93; ...&#41;
+    &#40;claimed? &#91;&#95; task-id worker-id&#93; ...&#41;
+    &#40;queue-depth &#91;&#95;&#93; ...&#41;
+    &#40;dead-lettered &#91;&#95;&#93; ...&#41;&#41;&#41;
+</code></pre><h3 id="relationship&#95;to&#95;workflowstore">Relationship to WorkflowStore</h3><p><code>WorkQueue</code> and <code>WorkflowStore</code> are separate protocols:</p><ul><li><strong>WorkQueue</strong>: handles task lifecycle (enqueue, claim, complete/fail, heartbeat).  This is where durability lives — Postgres, Redis, SQS.</li><li><strong>WorkflowStore</strong>: handles persisting halted workflow state for human-in-the-loop  workflows. Can be backed by the same database or a different one.</li><li><strong>start-worker-with-store</strong>: wires them together so halts automatically persist  state and resume tasks are re-enqueued.</li></ul><p>Both are protocol-based and swappable independently.</p>
+      </div>
+    </div>
+  </div>
+  <div class="column column-25">
+    <div class="column-wrapper nav">      
+      <h2>Topics</h2>
+      <ul>
+        
+        <li >
+          <a href="/docs/guestbook.html">
+            Your First Application
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/developing-workflows.html">
+            Developing Workflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/creating-cells.html">
+            Creating Cells
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/composing-workflows.html">
+            Composing Workflows
+          </a>
+        </li>
+        
+        <li class="selected" >
+          <a href="/docs/durable-queues.html">
+            Durable Queues
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/error-handling.html">
+            Error Handling
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/testing.html">
+            Testing
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/interceptors.html">
+            Interceptors
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/manifests.html">
+            Manifests
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/workflow-fragments.html">
+            Workflow Fragments
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/subworkflows.html">
+            Subworkflows
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/system-compilation.html">
+            System Compilation
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/cookbook.html">
+            Cookbook
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/llm-guide.html">
+            LLM Implementation Guide
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/quick-reference.html">
+            Quick Reference
+          </a>
+        </li>
+        
+      </ul>      
+    </div>
+  </div>
+</div>
+
+    </div>
+    <footer>
+      <article class="wrapper">
+        <div class="column-wrapper">
+          <p>
+            Mycelium framework is released under the <a href="http://opensource.org/licenses/MIT">MIT License</a>
+            &mdash; Copyright &copy;
+            <span id="cpyear"></span>
+          </p>
+          <p><a href="https://github.com/mycelium-clj/mycelium">Framework Source Code</a></p>
+          <p><a href="https://github.com/mycelium-clj/mycelium-clj.github.io">Docs Source Code</a></p>
+        </div>
+      </article>
+    </footer>
+
+    <script src="/js/highlight.pack.js" type="application/javascript"></script>
+    <script src="/js/site.js" type="application/javascript"></script>
+    
+<script src="/js/docs.js" type="application/javascript"></script>
+
+  </body>
+</html>
