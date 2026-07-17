@@ -154,8 +154,39 @@ mentally reconstruct the architecture from.
  :coerce?  true                                    ;; auto-coerce numeric types (int↔double)
  :propagate-keys? false                             ;; disable auto key propagation (on by default)
  :validate :warn                                    ;; :strict (default), :warn, or :off
+ :malli/registry app-registry                       ;; local Malli registry for named schema refs
  :on-trace (fn [entry] ...)}                        ;; callback after each cell completes
 ```
+
+### Custom Malli Registries
+
+Mycelium resolves named schema references (like `:app/id`) against Malli's
+global registry by default. To use your own registry instead, hand it to
+`pre-compile` (or `run-workflow`) via `:malli/registry`. Nothing is written to
+the global registry, so two workflows in one process can use different
+registries and tests stay isolated:
+
+```clojure
+(require '[malli.core :as m]
+         '[malli.registry :as mr]
+         '[mycelium.core :as myc])
+
+(def app-registry
+  (mr/composite-registry
+   (m/default-schemas)
+   {:app/id      :uuid
+    :app/request [:map [:id :app/id]]}))
+
+(def compiled (myc/pre-compile workflow {:malli/registry app-registry}))
+```
+
+One registry at compile time covers cell schemas, transform schemas, joins,
+and the workflow input schema. The same option is accepted by manifests,
+generators, composed workflows, and `invoke-cell`.
+
+The registry is baked into each schema at compile time. If you use an
+`mr/mutable-registry`, mutate it *before* compiling — changes made after
+`pre-compile` don't reach a compiled workflow.
 
 ## Accumulating Data Model
 
