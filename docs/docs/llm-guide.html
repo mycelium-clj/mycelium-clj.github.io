@@ -147,7 +147,7 @@
 </code></pre><p>Join members have <strong>no entries in <code>:edges</code></strong>. Each gets the same input snapshot. Output keys must not overlap.</p><h3 id="default&#95;fallback">Default Fallback</h3><pre><code class="clojure">:edges {:start {:success :ok, :default :fallback}}
 :dispatches {:start &#91;&#91;:success &#40;fn &#91;d&#93; &#40;:valid d&#41;&#41;&#93;&#93;}
 ;; :default auto-generates &#40;constantly true&#41; as last predicate
-</code></pre><h2></h2><h2 id="development&#95;workflow&#95;(3&#95;phases)">Development Workflow (3 Phases)</h2><p>Mycelium supports an iterative development workflow. You don't need to get everything right on the first try.</p><h3 id="phase&#95;1:&#95;structure&#95;(compile-time&#95;feedback)">Phase 1: Structure (compile-time feedback)</h3><p>Write the manifest with cells, edges, and schemas. Pre-compilation catches structural errors immediately:</p><pre><code class="clojure">&#40;myc/pre-compile workflow-def&#41; ;; Throws on: missing edges, unreachable cells, bad schemas
+</code></pre><h2></h2><h2 id="development&#95;workflow&#95;(3&#95;phases)">Development Workflow (3 Phases)</h2><p>Mycelium supports an iterative development workflow. You don't need to get everything right on the first try.</p><p>When working from an EDN manifest, the same loop is available from the shell through the <a href='agent-cli.html'>Agent CLI</a>: <code>myc status</code> to find failing cells, <code>myc brief &lt;cell&gt;</code> for the contract, <code>myc test &lt;cell&gt;</code> to verify in isolation, and <code>myc patch</code> for checked structural edits.</p><h3 id="phase&#95;1:&#95;structure&#95;(compile-time&#95;feedback)">Phase 1: Structure (compile-time feedback)</h3><p>Write the manifest with cells, edges, and schemas. Pre-compilation catches structural errors immediately:</p><pre><code class="clojure">&#40;myc/pre-compile workflow-def&#41; ;; Throws on: missing edges, unreachable cells, bad schemas
 </code></pre><p>Generate cell stubs from the workflow structure:</p><pre><code class="clojure">&#40;println &#40;myc/generate-stubs workflow-def&#41;&#41;
 ;; Prints defcell forms with schemas and TODO handlers
 </code></pre><h3 id="phase&#95;2:&#95;logic&#95;(run&#95;with&#95;warnings,&#95;iterate)">Phase 2: Logic (run with warnings, iterate)</h3><p>Write handler implementations. Run with <code>:validate :warn</code> to see all problems at once without halting:</p><pre><code class="clojure">&#40;let &#91;result &#40;myc/run-workflow workflow {} test-data {:validate :warn}&#41;&#93;
@@ -177,7 +177,7 @@
     &#41;&#41;
 </code></pre><h3 id="testing&#95;cells&#95;in&#95;isolation">Testing Cells in Isolation</h3><pre><code class="clojure">&#40;dev/test-cell :app/validate {:input {:name &quot;Alice&quot;}}&#41;
 ;; =&gt; {:pass? true, :output {:valid true}, :errors &#91;&#93;, :duration-ms 0.1}
-</code></pre><h2></h2><h2 id="common&#95;mistakes">Common Mistakes</h2><h3 id="1.&#95;returning&#95;the&#95;full&#95;data&#95;map">1. Returning the full data map</h3><pre><code class="clojure">;; WRONG — don't thread the full map
+</code></pre><p>From the shell, against a manifest: <code>myc test workflow.edn validate --input '{:name &quot;Alice&quot;}' --require app.cells</code> (see <a href='agent-cli.html'>Agent CLI</a>).<h2></h2></p><h2 id="common&#95;mistakes">Common Mistakes</h2><h3 id="1.&#95;returning&#95;the&#95;full&#95;data&#95;map">1. Returning the full data map</h3><pre><code class="clojure">;; WRONG — don't thread the full map
 &#40;fn &#91;&#95; data&#93; &#40;assoc data :y &#40;&#42; 2 &#40;:x data&#41;&#41;&#41;&#41;
 
 ;; RIGHT — return only new keys &#40;key propagation merges input&#41;
@@ -272,6 +272,12 @@
         <li class="selected" >
           <a href="/docs/llm-guide.html">
             LLM Implementation Guide
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/agent-cli.html">
+            Agent CLI
           </a>
         </li>
         

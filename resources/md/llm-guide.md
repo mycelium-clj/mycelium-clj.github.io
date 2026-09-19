@@ -170,6 +170,8 @@ Join members have **no entries in `:edges`**. Each gets the same input snapshot.
 
 Mycelium supports an iterative development workflow. You don't need to get everything right on the first try.
 
+When working from an EDN manifest, the same loop is available from the shell through the [Agent CLI](agent-cli.html): `myc status` to find failing cells, `myc brief <cell>` for the contract, `myc test <cell>` to verify in isolation, and `myc patch` for checked structural edits.
+
 ### Phase 1: Structure (compile-time feedback)
 
 Write the manifest with cells, edges, and schemas. Pre-compilation catches structural errors immediately:
@@ -242,6 +244,8 @@ Once logic is correct, lock down schemas. Run with `:validate :strict` (the defa
 (dev/test-cell :app/validate {:input {:name "Alice"}})
 ;; => {:pass? true, :output {:valid true}, :errors [], :duration-ms 0.1}
 ```
+
+From the shell, against a manifest: `myc test workflow.edn validate --input '{:name "Alice"}' --require app.cells` (see [Agent CLI](agent-cli.html)).
 
 ---
 

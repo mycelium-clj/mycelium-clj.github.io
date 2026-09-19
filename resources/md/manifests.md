@@ -200,6 +200,8 @@ Generate a self-contained prompt for implementing a single cell:
 
 The `:prompt` string contains everything an LLM needs to implement the cell: schema, examples, dispatch rules, and coding constraints.
 
+The same brief — and the rest of the manifest query layer: status, paths, references, checked edits — is available from the shell as `myc brief <manifest> <cell>`. See [Agent CLI](agent-cli.html).
+
 ## Manifest Validation Rules
 
 `validate-manifest` checks:

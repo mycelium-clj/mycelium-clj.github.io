@@ -142,7 +142,7 @@
 ;;     :requires &#91;:db&#93;
 ;;     :examples {:input {...}, :output {...}}
 ;;     :prompt &quot;## Cell: :auth/validate-session\n...&quot;}
-</code></pre><p>The <code>:prompt</code> string contains everything an LLM needs to implement the cell: schema, examples, dispatch rules, and coding constraints.</p><h2 id="manifest&#95;validation&#95;rules">Manifest Validation Rules</h2><p><code>validate-manifest</code> checks:</p><ul><li><code>:id</code> is present</li><li><code>:cells</code> is present and non-empty</li><li><code>:edges</code> is present (or <code>:pipeline</code> which expands to <code>:edges</code>)</li><li>Every cell has valid <code>:id</code>, <code>:doc</code> (non-empty string), <code>:schema</code> (with <code>:input</code> and <code>:output</code>, or <code>:inherit</code>), and <code>:on-error</code></li><li><code>:schema :inherit</code> cells have a registered cell with a schema in the registry</li><li><code>:on-error</code> targets exist in <code>:cells</code></li><li>All edge targets point to valid cells, joins, or terminal states (<code>:end</code>, <code>:error</code>, <code>:halt</code>)</li><li>Every non-join-member cell has an edge entry</li><li>Dispatch coverage: every edge label has a predicate, every predicate has an edge</li><li>All cells are reachable from <code>:start</code></li><li><code>:input-schema</code> is well-formed Malli (if present)</li><li>Join members have no edge entries</li><li>Join names don't collide with cell names</li></ul><h2 id="example:&#95;complete&#95;manifest">Example: Complete Manifest</h2><pre><code class="clojure">{:id :user-profile
+</code></pre><p>The <code>:prompt</code> string contains everything an LLM needs to implement the cell: schema, examples, dispatch rules, and coding constraints.</p><p>The same brief — and the rest of the manifest query layer: status, paths, references, checked edits — is available from the shell as <code>myc brief &lt;manifest&gt; &lt;cell&gt;</code>. See <a href='agent-cli.html'>Agent CLI</a>.</p><h2 id="manifest&#95;validation&#95;rules">Manifest Validation Rules</h2><p><code>validate-manifest</code> checks:</p><ul><li><code>:id</code> is present</li><li><code>:cells</code> is present and non-empty</li><li><code>:edges</code> is present (or <code>:pipeline</code> which expands to <code>:edges</code>)</li><li>Every cell has valid <code>:id</code>, <code>:doc</code> (non-empty string), <code>:schema</code> (with <code>:input</code> and <code>:output</code>, or <code>:inherit</code>), and <code>:on-error</code></li><li><code>:schema :inherit</code> cells have a registered cell with a schema in the registry</li><li><code>:on-error</code> targets exist in <code>:cells</code></li><li>All edge targets point to valid cells, joins, or terminal states (<code>:end</code>, <code>:error</code>, <code>:halt</code>)</li><li>Every non-join-member cell has an edge entry</li><li>Dispatch coverage: every edge label has a predicate, every predicate has an edge</li><li>All cells are reachable from <code>:start</code></li><li><code>:input-schema</code> is well-formed Malli (if present)</li><li>Join members have no edge entries</li><li>Join names don't collide with cell names</li></ul><h2 id="example:&#95;complete&#95;manifest">Example: Complete Manifest</h2><pre><code class="clojure">{:id :user-profile
  :doc &quot;Authenticate, fetch user by ID, render profile page&quot;
  :input-schema &#91;:map &#91;:http-request &#91;:map&#93;&#93;&#93;
 
@@ -304,6 +304,12 @@
         <li >
           <a href="/docs/llm-guide.html">
             LLM Implementation Guide
+          </a>
+        </li>
+        
+        <li >
+          <a href="/docs/agent-cli.html">
+            Agent CLI
           </a>
         </li>
         

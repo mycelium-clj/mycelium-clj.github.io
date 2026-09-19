@@ -12,4 +12,5 @@
  ["system-compilation.md"     "System Compilation"          "topic"]
  ["cookbook.md"               "Cookbook"                    "topic"]
  ["llm-guide.md"              "LLM Implementation Guide"    "topic"]
+ ["agent-cli.md"              "Agent CLI"                   "topic"]
  ["quick-reference.md"        "Quick Reference"             "topic"]]
